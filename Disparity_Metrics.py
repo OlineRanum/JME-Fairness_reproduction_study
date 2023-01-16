@@ -153,7 +153,7 @@ def AG_F_mask(E_system, E_target, E_collect, item_label, batch_indicator):
     rel = rel / num_itemG
     return [metric, dis, rel]
 
-
+#reproduces figure 1 example
 if __name__ == '__main__':
     # E_system = torch.tensor([[0.4, 0.5, 0.1], [0.3, 0.2, 0.5], [0.2, 0.5, 0.3]]).float()
     # E_system2 = torch.tensor([[0.0, 0.9, 0.1], [0.2, 0.3, 0.5], [0.3, 0.5, 0.2]]).float()
