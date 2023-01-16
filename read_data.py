@@ -77,8 +77,9 @@ def gender_index(df):
             index_F.append(i)
         else:
             index_M.append(i)
-    index_F = np.array(index_F)
-    index_M = np.array(index_M)
+    index_F = np.array(index_F) #1709 women
+    index_M = np.array(index_M) #4331 men
+    
     return index_F, index_M
 
 
@@ -117,7 +118,10 @@ def age_mapping_ml1m(age):
 
 
 def age_index(df, user_size):
+    print(df)
     age_dic = df.groupby('user')['age'].apply(list).to_dict()
+    print("age_dic", len(age_dic))
+    print(age_dic[1])
     index_age = [[], [], [], [], [], [], []]
     for i in range(0, len(age_dic)):
         if 0 in age_dic[i]:
@@ -131,6 +135,7 @@ def age_index(df, user_size):
         elif 4 in age_dic[i]:
             index_age[4].append(i)
         elif 5 in age_dic[i]:
+            print("in")
             index_age[5].append(i)
         elif 6 in age_dic[i]:
             index_age[6].append(i)
@@ -138,7 +143,7 @@ def age_index(df, user_size):
     for i in range(len(index_age)):
         index_age[i] = np.array(index_age[i])
 
-    age_type = 7
+    age_type = 7   
     age_mask = torch.zeros(age_type, user_size)
     for i in range(user_size):
         for k in range(age_type):
@@ -147,14 +152,15 @@ def age_index(df, user_size):
 
     return index_age, age_mask
 
-
+#i am not sure i think it divides movies in 5 categories from most common to less
 def pop_index(df):
     count = Counter(df['item'])
-    common = count.most_common()
-    item_size = len(set(df['item']))
+    common = count.most_common() #returns list of tuples of (element, count) sorted by counts(mostly commonly viewed rated movie)
+    item_size = len(set(df['item'])) # = len(common) = 3706
 
     index_pop = [[], [], [], [], []]
     for i in range(item_size):
+        #compares the number of occurences of each movie with an occurence in common idk why
         if count[i] > common[int(0.2 * len(common))][1]:
             index_pop[0].append(i)
         elif count[i] > common[int(0.4 * len(common))][1]:
@@ -170,7 +176,7 @@ def pop_index(df):
         index_pop[i] = torch.tensor(index_pop[i])
 
     pop_size = 5
-    pop_mask = torch.zeros(pop_size, item_size)
+    pop_mask = torch.zeros(pop_size, item_size) #[5, 3706] 
     for i in range(item_size):
         for k in range(pop_size):
             if i in index_pop[k]:
@@ -243,24 +249,27 @@ def genre_ml1m_index(df):
 
     # print("ls:", ls)
 
-    genre_mask = torch.zeros(18, len(df_genre))
+    genre_mask = torch.zeros(18, len(df_genre)) # [18, 3706]
     for i in range(len(df_genre)):
         for k in range(0, 18):
             if k in ls[i]:
                 genre_mask[k][i] = 1
 
-    index_genre = []
+    index_genre = [] #list 18
     for i in range(genre_mask.shape[0]):
         index_genre.append(torch.tensor(np.where(genre_mask[i] == 1)[0]).long())
-
+    
     return index_genre, genre_mask
 
 
 def preprocessing(args):
     data_dir = os.path.join('./data', args.data)
-
+    
+    #following line is commented out because otherwise there is a local var df referenced before assignment error
     if args.data == 'ml-1m':
         df, item_mapping = MovieLens1M(data_dir).load()
+    else:
+        df, item_mapping = None, None 
 
     user_size = len(df['user'].unique())
     item_size = len(df['item'].unique())
@@ -268,14 +277,22 @@ def preprocessing(args):
     print("user_size:", user_size)
     print("item_size:", item_size)
 
+    #print(df.head(10))
+
     """construct matrix_label"""
+    #if the rating is >3 the user would watch it
+    #matrix label is the rating matrix: a 6040(#users)X3706(#items) matrix needed for matrix factorisation
+
     df_rate = df[["user", "item", "rate"]]
     df_rate = df_rate[df_rate['rate'] > 3]
     df_rate = df_rate.reset_index().drop(['index'], axis=1)
     df_rate['rate'] = 1
 
+    #print(df_rate.head(10))
+
     matrix_label = scipy.sparse.csr_matrix(
         (np.array(df_rate['rate']), (np.array(df_rate['user']), np.array(df_rate['item']))))
+
 
     return df, item_mapping, matrix_label, user_size, item_size
 
@@ -283,8 +300,11 @@ def preprocessing(args):
 def obtain_group_index(df, args):
     user_size = len(df['user'].unique())
 
+    #matrices of where in the df there is an index for each case
     index_F, index_M = gender_index(df)
+    #list of size 2 that has the #women and #men
     index_gender = [torch.tensor(index_F).long(), torch.tensor(index_M).long()]
+    #an array of arrays for all 7 age groups and an array that has 1 if the user belongs to a specific age group
     index_age, age_mask = age_index(df, user_size)
     index_pop, pop_mask = pop_index(df)
     # print("index_age:", index_age)
