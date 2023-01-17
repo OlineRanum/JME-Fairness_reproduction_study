@@ -17,7 +17,7 @@ import json
 
 def parser_args():
     parser = ArgumentParser(description="JMEF")
-    parser.add_argument('--data', type=str, default='ml-100k', choices=['ml-1m', 'ml-100k'],
+    parser.add_argument('--data', type=str, default='ml-1m', choices=['ml-1m', 'ml-100k'],
                         help="File path for data")
     parser.add_argument('--gpu_id', type=int, default=0)
     # Seed
@@ -30,9 +30,9 @@ def parser_args():
     parser.add_argument('--r_ep', type=int, default=1)
     parser.add_argument('--norm', type=str, default='N')
     parser.add_argument('--coll', type=str, default='Y')
-    parser.add_argument('--age', type=str, default='N')
+    parser.add_argument('--age', type=str, default='Y')
 
-    parser.add_argument('--conduct', type=str, default='st')
+    parser.add_argument('--conduct', type=str, default='sh')
     return parser.parse_args()
 
 
@@ -44,26 +44,32 @@ def normalize_matrix_by_row(matrix):
 
 def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, rand_tau=1):
     # construct E_target
-    num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")
+    num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")#Y sum in 1st dim of rating matrix 6040x1
+    print("num_rel: ", num_rel.shape)
     num_rel[num_rel == 0.0] = 1.0
 
-    exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float"))
-    E_target = exposure_rel / num_rel * matrix_label
+    exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float")) #6040x1
+    E_target = exposure_rel / num_rel * matrix_label #[6040,3706]
+    print("exposure_rel: ", exposure_rel.shape)
+    print("E target: ", E_target.shape)
 
     # construct E_collect
     if args.coll == 'Y':
-        E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean()
+        E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean() #[6040,3706]
     else:
         E_collect = np.zeros((E_target.shape[0], E_target.shape[1]))
+        print("E_collect collect = N: ", E_collect.shape)
 
     # construct E_system
     user_size = E_target.shape[0]
 
-    top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
+    top_item_id = np.array(list(save_df["item"])).reshape(-1, 100) #[6040, 100]
+    print("top item id: ", top_item_id.shape)
     top_score = np.array(list(save_df["score"])).reshape(-1, 100)
     if args.norm == 'Y':
         top_score = normalize_matrix_by_row(top_score)
-    weight = softmax(top_score / rand_tau, axis=1)
+    weight = softmax(top_score / rand_tau, axis=1) #Y/b in quation of p(d|u)
+    print("weight: ", weight.shape) #[6040, 100]
     # weight = softmax(np.power(top_score, rand_tau), axis=1)
 
     E_target = torch.from_numpy(E_target)
@@ -74,11 +80,14 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
     IIF_sp, IGF_sp, GIF_sp, GGF_sp, AIF_sp, AGF_sp = [], [], [], [], [], []
     sample_times = args.s_ep
     E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
-    for sample_epoch in trange(sample_times, ascii=False):
+    #this is done 100 times (100 different rankings)
+    for sample_epoch in trange(sample_times, ascii=False): # sample 100 rankings for each user 
         E_system_tmp = np.zeros((E_target.shape[0], E_target.shape[1]))
-        exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")  # pre-compute the exposure_vector
+        exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")  # pre-compute the exposure_vector (100x1)
         for i in range(user_size):
-            tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i])
+            tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i]) #selects one permutation of 100 movies from /
+            #top 100 movies from a user's rank with probability weights[user] (100x1)
+            print("tmp_select", tmp_selected)
             E_system_tmp[i][tmp_selected] = exp_vector
         E_system += E_system_tmp
 
@@ -92,6 +101,7 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
         #     AGF_sp.append(AG_F_mask(E_system_tmp, E_target, E_collect, item_label, indicator))
 
     E_system /= sample_times
+    print("E_system: ", E_system.shape)
 
     E_system = torch.from_numpy(E_system)
 
@@ -110,33 +120,40 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
 
 def eval_function_static(save_df, user_label, item_label, matrix_label, args):
     # construct E_target
-    num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")
+    num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float") #Y sum in 1st dim of rating matrix 
+    print("num_rel: ", num_rel.shape)
     num_rel[num_rel == 0.0] = 1.0
 
     exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float"))
     E_target = exposure_rel / num_rel * matrix_label
+    print("exposure_rel: ", exposure_rel.shape)
+    print("E target: ", E_target.shape)
 
     # construct E_system
     user_size = E_target.shape[0]
 
-    # construct E_collect
+    # construct E_collect (collectiion of exposures?), E_collect = random exposure
     if args.coll == 'Y':
         E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean()
+        print("E_collect collect = Y: ", E_collect.shape, E_target.mean())
     else:
         E_collect = np.zeros((E_target.shape[0], E_target.shape[1]))
+        print("E_collect collect = N: ", E_collect.shape)
 
     top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
+    print("top item id: ", top_item_id.shape)
     top_score = np.array(list(save_df["score"])).reshape(-1, 100)
 
     # put the exposure value into the selected positions
     E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
     exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
+    print("exp vector: ", exp_vector.shape)
     for i in range(user_size):
         E_system[i][top_item_id[i]] = exp_vector
 
-    # print("E_target:", E_target.sum())
-    # print("E_system:", E_system.sum())
-    # print("E_collect:", E_collect.sum())
+    print("E_target:", E_target.sum())
+    print("E_system:", E_system.sum())
+    print("E_collect:", E_collect.sum())
 
     E_system = torch.from_numpy(E_system)
     E_target = torch.from_numpy(E_target)
@@ -177,7 +194,7 @@ def compute_stochas(args):
     save_IID_sp, save_IGD_sp, save_GID_sp, save_GGD_sp, save_AID_sp, save_AGD_sp = [], [], [], [], [], []
     save_IIR_sp, save_IGR_sp, save_GIR_sp, save_GGR_sp, save_AIR_sp, save_AGR_sp = [], [], [], [], [], []
 
-    rand_tau_list = [8, 4, 2, 1, 0.5, 0.25, 0.125]
+    rand_tau_list = [8, 4, 2, 1, 0.5, 0.25, 0.125] # different values for beta
     # rand_tau_list = [1, 1e-1, 1e-2, 5e-2, 1e-3, 5e-3]
     len_tau = len(rand_tau_list)
 
@@ -398,7 +415,7 @@ if __name__ == '__main__':
     df, item_mapping, matrix_label, user_size, item_size = preprocessing(args)
     index_F, index_M, index_gender, index_age, index_genre, index_pop, age_matrix, pop_mask, genre_matrix \
         = obtain_group_index(df, args)
-    gender_matrix = torch.zeros(2, len(index_F) + len(index_M))
+    gender_matrix = torch.zeros(2, len(index_F) + len(index_M)) #[2, #females + #males] , 1st row for F 2nd for M
     for ind in index_F:
         gender_matrix[0][ind] = 1
     for ind in index_M:
@@ -413,19 +430,20 @@ if __name__ == '__main__':
     print("genre_num:", genre_num)
 
     if args.age == 'Y':
-        user_label = age_matrix
+        user_label = age_matrix #[7,6040]
     else:
-        user_label = gender_matrix  # .to(args.device)
-    item_label = genre_matrix  # .to(args.device)
+        user_label = gender_matrix  # .to(args.device) [2,6040]
+    item_label = genre_matrix  # .to(args.device) [18, 3706]
 
     print("user_label:", user_label.shape)
     print("item_label:", item_label.shape)
     print("item_label:", item_label[0])
 
     # matrix_label = torch.from_numpy(matrix_label.todense()).float().to(args.device)
-    matrix_label = np.array(matrix_label.todense())
-    # print("matrix_label:", matrix_label, type(matrix_label))
+    matrix_label = np.array(matrix_label.todense()) #rating matrix for matrix factorization, user-item relevance matrix Y [6040, 3706]
+    print("matrix_label:", matrix_label.shape, type(matrix_label))
 
+    #??
     print("norm:", args.norm)
     print("coll:", args.coll)
     print("model:", args.model)
@@ -434,5 +452,6 @@ if __name__ == '__main__':
         compute_stochas(args)
     elif args.conduct == 'st':
         compute_static(args)
-    # compute_exp_matrix(args)
+    #the line below is commented out in og repo
+    compute_exp_matrix(args)
     print("_________________________________")
