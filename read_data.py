@@ -26,17 +26,21 @@ class MovieLens1M(DatasetLoader):
         self.fpath_item = os.path.join(data_dir, 'movies.dat')
 
     def load(self):
-        # Load data
+        """ Load datasets from rate, user and item sources
+        """
+        # O: Load movie rating information 
         df_rate = pd.read_csv(self.fpath_rate,
                               sep='::',
                               engine='python',
                               names=['user', 'item', 'rate', 'time'],
                               usecols=['user', 'item', 'rate'])
+        # O: Load user demographic information
         df_user = pd.read_csv(self.fpath_user,
                               sep='::',
                               engine='python',
                               names=['user', 'gender', 'age', 'occupation', 'Zip-code'],
                               usecols=['user', 'gender', 'age'])
+        # O: Load movie item information
         df_item = pd.read_csv(self.fpath_item,
                               sep='::',
                               engine='python',
@@ -44,31 +48,51 @@ class MovieLens1M(DatasetLoader):
                               usecols=['item', 'genre'],
                               encoding='unicode_escape')
 
+        # O: Merge all data sources and clean dataframe
         df = pd.merge(df_rate, df_user, on='user')
         df = df.dropna(axis=0, how='any')
+
         # df = df[df['rate'] > 3]
+        
         df = df.reset_index().drop(['index'], axis=1)
         df = pd.merge(df, df_item, on='item')
+        
+        # O: Reset index of users to zero 
         df.user = df.user - 1
-        # df.item = df.item - 1
-        df, item_mapping = convert_unique_idx(df, 'item')
 
-        # print("item_mapping:", item_mapping)
+
+        # O: Reassign movie indices
+        df, item_mapping = convert_unique_idx(df, 'item')
 
         return df, item_mapping
 
 
 def convert_unique_idx(df, column_name):
+    """ O: Switch the index notation of the movie reviews in DataFrame into an ordered system. 
+    Return:
+        df: Dataframe with new index system
+        column_dict: Mapping between original index and new ordered index
+    """
+    # O: Build dictionary of index mappings from original definition to ordered definition
     column_dict = {x: i for i, x in enumerate(df[column_name].unique())}
+    # O: Change index of dataframe
     df[column_name] = df[column_name].apply(column_dict.get)
     df[column_name] = df[column_name].astype('int')
-    # print("df:", df[column_name])
+    
+    # O: Check that new index system is of expected size
     assert df[column_name].min() == 0
     assert df[column_name].max() == len(column_dict) - 1
+
+    
     return df, column_dict
 
 
 def gender_index(df):
+    """ O: Find index per gender 
+    return:
+        index_F: List of index of Females
+        index_M: List of index of Males
+    """
     gender_dic = df.groupby('user')['gender'].apply(list).to_dict()
     index_F = []
     index_M = []
@@ -81,22 +105,8 @@ def gender_index(df):
     index_M = np.array(index_M)
     return index_F, index_M
 
+"""
 
-def age_mapping(age):
-    if age < 18:
-        return 0
-    if age <= 24:
-        return 1
-    if age <= 34:
-        return 2
-    if age <= 44:
-        return 3
-    if age <= 49:
-        return 4
-    if age <= 55:
-        return 5
-    else:
-        return 6
 
 
 def age_mapping_ml1m(age):
@@ -114,11 +124,15 @@ def age_mapping_ml1m(age):
         return 5
     else:
         return 6
+"""
 
 
 def age_index(df, user_size):
+    """ 
+    """
     age_dic = df.groupby('user')['age'].apply(list).to_dict()
     index_age = [[], [], [], [], [], [], []]
+    
     for i in range(0, len(age_dic)):
         if 0 in age_dic[i]:
             index_age[0].append(i)
@@ -137,6 +151,8 @@ def age_index(df, user_size):
 
     for i in range(len(index_age)):
         index_age[i] = np.array(index_age[i])
+    
+    
 
     age_type = 7
     age_mask = torch.zeros(age_type, user_size)
@@ -145,15 +161,20 @@ def age_index(df, user_size):
             if i in index_age[k]:
                 age_mask[k][i] = 1
 
+
     return index_age, age_mask
 
 
 def pop_index(df):
+    # count number of reviews per movie
     count = Counter(df['item'])
+    # sort into ordered list by commonality
     common = count.most_common()
-    item_size = len(set(df['item']))
 
+    item_size = len(set(df['item']))
     index_pop = [[], [], [], [], []]
+    
+    # Defining percental ranges of commonalities 
     for i in range(item_size):
         if count[i] > common[int(0.2 * len(common))][1]:
             index_pop[0].append(i)
@@ -165,7 +186,7 @@ def pop_index(df):
             index_pop[3].append(i)
         else:
             index_pop[4].append(i)
-
+    print(index_pop)
     for i in range(len(index_pop)):
         index_pop[i] = torch.tensor(index_pop[i])
 
@@ -257,6 +278,10 @@ def genre_ml1m_index(df):
 
 
 def preprocessing(args):
+    """ O: Arranging review data
+    1. Load data from directory 
+    2. Construct sparse matrix of labels
+    """
     data_dir = os.path.join('./data', args.data)
 
     if args.data == 'ml-1m':
@@ -270,10 +295,13 @@ def preprocessing(args):
 
     """construct matrix_label"""
     df_rate = df[["user", "item", "rate"]]
+    # O: Keep only movies with ratings larger than 3 
     df_rate = df_rate[df_rate['rate'] > 3]
     df_rate = df_rate.reset_index().drop(['index'], axis=1)
+    
+    # O: set al rates to 1 
     df_rate['rate'] = 1
-
+    # O: (user, item), rate
     matrix_label = scipy.sparse.csr_matrix(
         (np.array(df_rate['rate']), (np.array(df_rate['user']), np.array(df_rate['item']))))
 
@@ -281,6 +309,9 @@ def preprocessing(args):
 
 
 def obtain_group_index(df, args):
+    """
+    """
+    
     user_size = len(df['user'].unique())
 
     index_F, index_M = gender_index(df)
