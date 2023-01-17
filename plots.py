@@ -34,7 +34,7 @@ def figure_2():
             axs[component, metric].set_title(metric_list[metric][component])
 
     plt.suptitle('Figure 2')
-    plt.savefig('Figure2.png', bbox_inches='tight')
+    #plt.savefig('Figure2.png', bbox_inches='tight')
     plt.show()
 
 figure_2()
