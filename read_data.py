@@ -106,51 +106,56 @@ def gender_index(df):
     
     return index_F, index_M
 
-"""
+
 
 
 
 def age_mapping_ml1m(age):
     if age == 1:
         return 0
-    if age <= 18:
+    elif age == 18:
         return 1
-    if age <= 25:
+    elif age == 25:
         return 2
-    if age <= 35:
+    elif age == 35:
         return 3
-    if age <= 45:
+    elif age == 45:
         return 4
-    if age <= 50:
+    elif age == 50:
         return 5
-    else:
+    elif age == 56:
         return 6
-"""
+    else:
+        print('Error in age data, age set = ', age)
+
 
 
 def age_index(df, user_size):
     """ 
     """
     age_dic = df.groupby('user')['age'].apply(list).to_dict()
+    
     print("age_dic", len(age_dic))
-    print(age_dic[1])
+    for id, age in age_dic.items():
+        age_dic[id] = age_mapping_ml1m(age[0])
+
+
     index_age = [[], [], [], [], [], [], []]
     
     for i in range(0, len(age_dic)):
-        if 0 in age_dic[i]:
+        if 0 == age_dic[i]:
             index_age[0].append(i)
-        elif 1 in age_dic[i]:
+        elif 1 == age_dic[i]:
             index_age[1].append(i)
-        elif 2 in age_dic[i]:
+        elif 2 == age_dic[i]:
             index_age[2].append(i)
-        elif 3 in age_dic[i]:
+        elif 3 == age_dic[i]:
             index_age[3].append(i)
-        elif 4 in age_dic[i]:
+        elif 4 == age_dic[i]:
             index_age[4].append(i)
-        elif 5 in age_dic[i]:
-            print("in")
+        elif 5 == age_dic[i]:
             index_age[5].append(i)
-        elif 6 in age_dic[i]:
+        elif 6 == age_dic[i]:
             index_age[6].append(i)
 
     for i in range(len(index_age)):
@@ -177,7 +182,6 @@ def pop_index(df):
 
     index_pop = [[], [], [], [], []]
     
-    # Defining percental ranges of commonalities 
     for i in range(item_size):
         #compares the number of occurences of each movie with an occurence in common idk why
         if count[i] > common[int(0.2 * len(common))][1]:
@@ -190,7 +194,7 @@ def pop_index(df):
             index_pop[3].append(i)
         else:
             index_pop[4].append(i)
-    print(index_pop)
+  
     for i in range(len(index_pop)):
         index_pop[i] = torch.tensor(index_pop[i])
 
