@@ -4,6 +4,12 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
+def min_max(arr):
+    min_ = np.min(arr)
+    max_ = np.max(arr)
+    min_max = (arr-min_)/(max_-min_)
+    return min_max
+
 
 def figure_2():
     custom_params = {"axes.spines.right": False, "axes.spines.top": False}
@@ -20,10 +26,15 @@ def figure_2():
             metrics = json.load(open('./save_exp/ml-1m/BPRMF/' +metric_list[metric][component]+ '_all_BPRMF_Y.json', 'r'))
             static = json.load(open('./save_exp/ml-1m/BPRMF/' + metric_list[metric][component] +'_all_BPRMF_static_Y.json', 'r'))
             metrics.extend(static)
-    
-            axs[component, metric].bar(x_axis - 0.2, metrics)
+            metrics = min_max(np.array(metrics))
+
+            sns.barplot(ax=axs[component, metric], x=x_axis - 0.2, y=metrics, palette='Blues_d')
+            axs[component, metric].plot(x_axis - 0.2, metrics, '--.', color = 'r')
             axs[component, metric].set_xticks(x_axis, x_values, rotation = 60)
             axs[component, metric].set_title(metric_list[metric][component])
+
+    plt.suptitle('Figure 2')
+    plt.savefig('Figure2.png', bbox_inches='tight')
     plt.show()
 
 figure_2()
