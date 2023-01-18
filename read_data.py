@@ -18,7 +18,47 @@ class DatasetLoader(object):
         """
         raise NotImplementedError
 
+class MovieLens100K(DatasetLoader):
+    def __init__(self, data_dir):
+        self.fpath_rate = os.path.join(data_dir, 'u.data')
+        self.fpath_user = os.path.join(data_dir, 'u.user')
+        self.fpath_item = os.path.join(data_dir, 'u.item')
 
+    def load(self):
+        """ 
+        Load datasets from rate, user and item sources
+        """
+        df_rate = pd.read_csv(self.fpath_rate,
+                              delim_whitespace=True,
+                              engine='python',
+                              names=['user', 'item', 'rate', 'time'],
+                              usecols=['user', 'item', 'rate'])
+        
+        df_user = pd.read_csv(self.fpath_user,
+                              sep='\|',
+                              engine='python',
+                              names=['user', 'age', 'gender', 'occupation', 'Zip-code'],
+                              usecols=['user', 'age', 'gender'])[['user', 'gender', 'age']]
+
+        df_item = pd.read_csv(self.fpath_item,
+                              sep='\|+',
+                              engine='python',
+                              names=['item', 'title', 'release', 'videorelease', 'url', 'g0', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
+                              'g16', 'g17', 'g18'],
+                              usecols=['item', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
+                              'g16', 'g17', 'g18'])
+
+        df = pd.merge(df_rate, df_user, on='user')
+        df = df.dropna(axis=0, how='any')
+
+        df = df.reset_index().drop(['index'], axis=1)
+        df = pd.merge(df, df_item, on='item')
+
+        df.user = df.user-1
+        
+        df, item_mapping = convert_unique_idx(df, 'item')
+
+        return df, item_mapping
 class MovieLens1M(DatasetLoader):
     def __init__(self, data_dir):
         self.fpath_rate = os.path.join(data_dir, 'ratings.dat')
@@ -26,7 +66,8 @@ class MovieLens1M(DatasetLoader):
         self.fpath_item = os.path.join(data_dir, 'movies.dat')
 
     def load(self):
-        """ Load datasets from rate, user and item sources
+        """ 
+        Load datasets from rate, user and item sources
         """
         # O: Load movie rating information 
         df_rate = pd.read_csv(self.fpath_rate,
@@ -110,6 +151,24 @@ def gender_index(df):
 
 
 
+def age_mapping_ml100k(age):
+    if age < 18:
+        return 0
+    elif age < 25:
+        return 1
+    elif age < 35:
+        return 2
+    elif age < 45:
+        return 3
+    elif age < 50:
+        return 4
+    elif age < 56:
+        return 5
+    elif age >= 56:
+        return 6
+    else:
+        print('Error in age data, age set = ', age)
+
 def age_mapping_ml1m(age):
     if age == 1:
         return 0
@@ -130,14 +189,17 @@ def age_mapping_ml1m(age):
 
 
 
-def age_index(df, user_size):
+def age_index(df, user_size, data):
     """ 
     """
     age_dic = df.groupby('user')['age'].apply(list).to_dict()
     
     print("age_dic", len(age_dic))
     for id, age in age_dic.items():
-        age_dic[id] = age_mapping_ml1m(age[0])
+        if data == 'ml-100k':
+            age_dic[id] = age_mapping_ml100k(age[0])
+        elif data == 'ml-1m':
+            age_dic[id] = age_mapping_ml1m(age[0])
 
 
     index_age = [[], [], [], [], [], [], []]
@@ -210,7 +272,7 @@ def pop_index(df):
 
 def genre_ml100k_index(df):
     df_genre = df[
-        ['item', 'g0', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
+        ['item', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
          'g16', 'g17', 'g18']]
     df_genre = df_genre.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True).drop(columns=['item'])
     genre_name = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
@@ -296,7 +358,7 @@ def preprocessing(args):
     if args.data == 'ml-1m':
         df, item_mapping = MovieLens1M(data_dir).load()
     else:
-        df, item_mapping = None, None 
+        df, item_mapping = MovieLens100K(data_dir).load()
 
     user_size = len(df['user'].unique())
     item_size = len(df['item'].unique())
@@ -336,7 +398,7 @@ def obtain_group_index(df, args):
     #list of size 2 that has the #women and #men
     index_gender = [torch.tensor(index_F).long(), torch.tensor(index_M).long()]
     #an array of arrays for all 7 age groups and an array that has 1 if the user belongs to a specific age group
-    index_age, age_mask = age_index(df, user_size)
+    index_age, age_mask = age_index(df, user_size, args.data)
     index_pop, pop_mask = pop_index(df)
     # print("index_age:", index_age)
     # print("index_pop:", index_pop)
