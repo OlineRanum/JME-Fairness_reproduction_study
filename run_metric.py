@@ -30,7 +30,7 @@ def parser_args():
     parser.add_argument('--r_ep', type=int, default=1)
     parser.add_argument('--norm', type=str, default='N')
     parser.add_argument('--coll', type=str, default='Y')
-    parser.add_argument('--age', type=str, default='Y')
+    parser.add_argument('--age', type=str, default='N')
 
     parser.add_argument('--conduct', type=str, default='sh')
     return parser.parse_args()
@@ -47,7 +47,8 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
     num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")#Y sum in 1st dim of rating matrix 6040x1
     print("num_rel: ", num_rel.shape)
     num_rel[num_rel == 0.0] = 1.0
-
+    
+    # user browsing model  
     exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float")) #6040x1
     E_target = exposure_rel / num_rel * matrix_label #[6040,3706]
     print("exposure_rel: ", exposure_rel.shape)
@@ -87,7 +88,7 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
         for i in range(user_size):
             tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i]) #selects one permutation of 100 movies from /
             #top 100 movies from a user's rank with probability weights[user] (100x1)
-            print("tmp_select", tmp_selected)
+            #print("tmp_select", tmp_selected)
             E_system_tmp[i][tmp_selected] = exp_vector
         E_system += E_system_tmp
 
@@ -120,6 +121,7 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
 
 def eval_function_static(save_df, user_label, item_label, matrix_label, args):
     # construct E_target
+    
     num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float") #Y sum in 1st dim of rating matrix 
     print("num_rel: ", num_rel.shape)
     num_rel[num_rel == 0.0] = 1.0
@@ -244,11 +246,19 @@ def compute_stochas(args):
 
 
 def compute_static(args):
+    # Load deterministic ranker
     save_df = pd.read_csv('./saved_model/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
                           compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
+    
+    # Rename columns of dataframe
     save_df = save_df.rename(columns={0: "user", 2: "item", 4: "score"})
+    
+    # Reset range of user indices to begin with zero
     save_df.user = save_df.user - 1
+
     save_df['item'] = save_df['item'].map(item_mapping)
+
+    # Sort 
     save_df = save_df.sort_values(["user", "score"], ascending=[True, False])
     save_df = save_df.reset_index().drop(['index'], axis=1)
 
@@ -318,52 +328,52 @@ def compute_exp_matrix(args):
     rand_tau_list = [0.125, 8]
     len_tau = len(rand_tau_list)
 
-    # """evaluate on whole"""
-    # for i in range(len_tau):
-    #     rand_tau = rand_tau_list[i]
-    #     print("tau={}".format(rand_tau))
-    #     # construct E_target
-    #     num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")
-    #     num_rel[num_rel == 0.0] = 1.0
-    #
-    #     exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float"))
-    #     E_target = exposure_rel / num_rel * matrix_label
-    #
-    #     # construct E_collect
-    #     E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean()
-    #
-    #     # construct E_system
-    #     user_size = E_target.shape[0]
-    #
-    #     top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
-    #     top_score = np.array(list(save_df["score"])).reshape(-1, 100)
-    #     # top_score = normalize_matrix_by_row(top_score)
-    #     weight = softmax(top_score / rand_tau, axis=1)
-    #
-    #     # put the exposure value into the selected positions
-    #     sample_times = 100
-    #     E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
-    #     for _ in trange(sample_times, ascii=False):
-    #         E_system_tmp = np.zeros((E_target.shape[0], E_target.shape[1]))
-    #         exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
-    #         for i in range(user_size):
-    #             tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i])
-    #             E_system_tmp[i][tmp_selected] = exp_vector
-    #         E_system += E_system_tmp
-    #     E_system /= sample_times
-    #
-    #     E_system = torch.from_numpy(E_system)
-    #     E_target = torch.from_numpy(E_target)
-    #     E_collect = torch.from_numpy(E_collect)
-    #     indicator = torch.ones((E_target.shape[0], E_target.shape[1]))
-    #     GG_target_stochas = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[3]
-    #     GG_system_stochas = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[4]
-    #
-    #     with open("./save_exp/{}/GG_MT_{}_{}.json".format(args.data, rand_tau, args.model), "w") as fp:
-    #         json.dump(np.array(GG_target_stochas).tolist(), fp)
-    #     with open("./save_exp/{}/GG_MS_{}_{}.json".format(args.data, rand_tau, args.model), "w") as fp:
-    #         json.dump(np.array(GG_system_stochas).tolist(), fp)
+    """evaluate on whole"""
+    for i in range(len_tau):
+        rand_tau = rand_tau_list[i]
+        print("tau={}".format(rand_tau))
+        # construct E_target
+        num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")
+        num_rel[num_rel == 0.0] = 1.0
 
+        exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float"))
+        E_target = exposure_rel / num_rel * matrix_label
+
+        # construct E_collect
+        E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean()
+
+        # construct E_system
+        user_size = E_target.shape[0]
+
+        top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
+        top_score = np.array(list(save_df["score"])).reshape(-1, 100)
+        # This was commented out at some point
+        top_score = normalize_matrix_by_row(top_score)
+        weight = softmax(top_score / rand_tau, axis=1)
+
+        # put the exposure value into the selected positions
+        sample_times = 100
+        E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
+        for _ in trange(sample_times, ascii=False):
+            E_system_tmp = np.zeros((E_target.shape[0], E_target.shape[1]))
+            exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
+            for i in range(user_size):
+                tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i])
+                E_system_tmp[i][tmp_selected] = exp_vector
+            E_system += E_system_tmp
+        E_system /= sample_times
+
+        E_system = torch.from_numpy(E_system)
+        E_target = torch.from_numpy(E_target)
+        E_collect = torch.from_numpy(E_collect)
+        indicator = torch.ones((E_target.shape[0], E_target.shape[1]))
+        GG_target_stochas = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[3]
+        GG_system_stochas = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[4]
+
+        with open("./save_exp/{}/GG_MT_{}_{}.json".format(args.data, rand_tau, args.model), "w") as fp:
+            json.dump(np.array(GG_target_stochas).tolist(), fp)
+        with open("./save_exp/{}/GG_MS_{}_{}.json".format(args.data, rand_tau, args.model), "w") as fp:
+            json.dump(np.array(GG_system_stochas).tolist(), fp)
     # construct E_target
     num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")
     num_rel[num_rel == 0.0] = 1.0
@@ -413,8 +423,11 @@ if __name__ == '__main__':
 
     """read data and attribute label"""
     df, item_mapping, matrix_label, user_size, item_size = preprocessing(args)
+    # Obtain attribute indices
     index_F, index_M, index_gender, index_age, index_genre, index_pop, age_matrix, pop_mask, genre_matrix \
         = obtain_group_index(df, args)
+
+    # Build matrix with gender information
     gender_matrix = torch.zeros(2, len(index_F) + len(index_M)) #[2, #females + #males] , 1st row for F 2nd for M
     for ind in index_F:
         gender_matrix[0][ind] = 1
@@ -433,6 +446,7 @@ if __name__ == '__main__':
         user_label = age_matrix #[7,6040]
     else:
         user_label = gender_matrix  # .to(args.device) [2,6040]
+        
     item_label = genre_matrix  # .to(args.device) [18, 3706]
 
     print("user_label:", user_label.shape)
