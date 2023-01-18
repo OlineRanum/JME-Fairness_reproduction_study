@@ -23,8 +23,8 @@ def figure_2():
 
     for metric in range(len(metric_list)):
         for component in range(len(metric_list[metric])):
-            metrics = json.load(open('./save_exp/ml-1m/BPRMF/' +metric_list[metric][component]+ '_all_BPRMF_Y.json', 'r'))
-            static = json.load(open('./save_exp/ml-1m/BPRMF/' + metric_list[metric][component] +'_all_BPRMF_static_Y.json', 'r'))
+            metrics = json.load(open('./save_exp/ml-1m/' +metric_list[metric][component]+ '_all_BPRMF_Y.json', 'r'))
+            static = json.load(open('./save_exp/ml-1m/' + metric_list[metric][component] +'_all_BPRMF_static_Y.json', 'r'))
             metrics.extend(static)
             metrics = min_max(np.array(metrics))
 
