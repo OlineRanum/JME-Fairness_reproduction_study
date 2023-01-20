@@ -417,6 +417,9 @@ def compute_exp_matrix(args):
 
 
 if __name__ == '__main__':
+    print('start timer')
+    start = time.time()
+
     args = parser_args()
     args.device = torch.device('cuda:' + str(args.gpu_id) if torch.cuda.is_available() else 'cpu')
     print("device:", args.device)
@@ -469,3 +472,5 @@ if __name__ == '__main__':
     #the line below is commented out in og repo
     compute_exp_matrix(args)
     print("_________________________________")
+    stop = time.time()
+    print('Time elapsed: ', np.round(stop-start, 4), ' s')

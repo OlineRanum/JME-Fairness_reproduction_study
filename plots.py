@@ -34,7 +34,6 @@ def AUC_trap(x, y):
 
 
 def load_data(model, metric_list = metric_list):
-def load_data(model, metric_list = metric_list, fig4 = False):
     
     df = pd.DataFrame(columns = column_names)
     df["II"] = [[], [], []]
@@ -42,12 +41,10 @@ def load_data(model, metric_list = metric_list, fig4 = False):
         for component in range(len(metric_list[metric])):
             metrics = json.load(open('./save_exp/ml-1m/Experiment_1/' + model + '/' + metric_list[metric][component]+ '_all_' + model + '_Y.json', 'r'))
             static  = json.load(open('./save_exp/ml-1m/Experiment_1/' + model + '/' + metric_list[metric][component] +'_all_' + model + '_static_Y.json', 'r'))
-            if fig4: #static value not included
-                df[column_names[metric]][component] = metrics
-            else:
-                metrics.extend(static)
-                metrics = min_max(np.array(metrics))
-                df[column_names[metric]][component] = metrics
+            metrics.extend(static)
+            metrics = min_max(np.array(metrics))
+            df[column_names[metric]][component] = metrics
+
     df.index = ['F', 'D', 'R']
     return df
 
@@ -98,29 +95,3 @@ def figure_3(models, model_name = ['BPRMF'], column_names = column_names):
     plt.show()
 
 #figure_3([BPRMF])
-
-BPRMF = load_data('BPRMF', fig4=True)
-LDA = load_data('LDA', fig4=True)
-PureSVD = load_data('PureSVD', fig4=True)
-
-
-def figure_4(models):
-    df = pd.DataFrame()
-    for model in models:
-        df = df.append(model)
-    for column in column_names:
-        df = df.explode(column_names)
-    
-    main_metric = df.loc['F'].astype(float)
-    disparity = df.loc['D'].astype(float)
-    relevance = df.loc['R'].astype(float)
-
-    main_corr = main_metric.corr(method='kendall')
-    d_corr = disparity.corr(method='kendall')
-    r_corr = relevance.corr(method='kendall')
-
-    for i in [main_corr, d_corr, r_corr]:
-        plot = sn.heatmap(i, annot=True, cmap="YlGnBu", fmt='.3g')
-        plt.show()
-
-fig4 = figure_4([BPRMF, LDA, PureSVD])
