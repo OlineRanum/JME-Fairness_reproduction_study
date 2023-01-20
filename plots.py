@@ -33,14 +33,20 @@ def AUC_trap(x, y):
     return area 
 
 
-def load_data(model, metric_list = metric_list):
+def load_data(model, Experiment_nr, group, metric_list = metric_list):
     
     df = pd.DataFrame(columns = column_names)
     df["II"] = [[], [], []]
     for metric in range(len(metric_list)):
         for component in range(len(metric_list[metric])):
-            metrics = json.load(open('./save_exp/ml-1m/Experiment_1/' + model + '/' + metric_list[metric][component]+ '_all_' + model + '_Y.json', 'r'))
-            static  = json.load(open('./save_exp/ml-1m/Experiment_1/' + model + '/' + metric_list[metric][component] +'_all_' + model + '_static_Y.json', 'r'))
+            if group == 'Age':
+                metrics = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '_Y.json', 'r'))
+                static  = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static_Y.json', 'r'))
+            elif group == 'Gender':
+                metrics = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
+                static  = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
+            else:
+                print('Unknown group')
             metrics.extend(static)
             metrics = min_max(np.array(metrics))
             df[column_names[metric]][component] = metrics
@@ -49,11 +55,11 @@ def load_data(model, metric_list = metric_list):
     return df
 
 
-BPRMF = load_data('BPRMF')
-#LDA = load_data('LDA')
-#PureSVD = load_data('PureSVD')
-
-
+BPRMF = load_data('BPRMF', 1, 'Age')
+LDA = load_data('LDA', 3, 'Age')
+PureSVD = load_data('PureSVD', 4, 'Age')
+SLIM = load_data('SLIM', 5, 'Age')
+WRMF = load_data('WRMF', 6, 'Age')
 
 def figure_2(model, column_names = column_names):
     fig, axs = plt.subplots(3, 6, constrained_layout=True)
@@ -68,30 +74,34 @@ def figure_2(model, column_names = column_names):
             axs[component, metric].plot(x_axis - 0.2, metrics, '--.', color = 'r')
             axs[component, metric].set_xticks(x_axis, beta_values, rotation = 60)
             axs[component, metric].set_title(metric_list[metric][component])
+    fig.supxlabel(r'$\beta$')
+#    fig.supylabel('metrics')
 
     #plt.suptitle('Figure 2')
     #plt.savefig('Figure2.png', bbox_inches='tight')
     plt.show()
 
-figure_2(BPRMF)
+#figure_2(BPRMF)
 
 
-def figure_3(models, model_name = ['BPRMF'], column_names = column_names):
+def figure_3(models, model_name = ['BPRMF', 'LDA', 'PureSVD', 'SLIM'], column_names = column_names):
     fig, axs = plt.subplots(1, 6, constrained_layout=True)
 
     x_axis = np.arange(len(x_values))
 
     for i in range(len(models)):
         model = models[i]
+        AUC_list = []
         for metric in range(len(column_names)):
             axs[metric].plot(model[column_names[metric]][1], model[column_names[metric]][2], '--*', label = model_name[i])
             axs[metric].set_xlabel(column_names[metric] + '-D')
             axs[metric].set_ylabel(column_names[metric] + '-R')
-            print('AUC ', column_names[metric],' = ', AUC(model[column_names[metric]][1], model[column_names[metric]][2]))
-            print('AUC trap', column_names[metric],' = ', AUC_trap(model[column_names[metric]][1], model[column_names[metric]][2]))
+            AUC_list.append(np.round(AUC_trap(model[column_names[metric]][1], model[column_names[metric]][2]), 4))
+        print('AUC ', model_name[i],' = ', AUC_list)
+#            print('AUC trap', column_names[metric],' = ', AUC_trap(model[column_names[metric]][1], model[column_names[metric]][2]))
     # Put a legend below current axis
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
-          fancybox=True, shadow=True, ncol=5)
+    fig.legend(labels=model_name, loc="lower center", bbox_to_anchor=(0.5, -0.05), ncol=4)
+    #fig.legend(loc='lower center', bbox_to_anchor=(0.5, -0.05), fancybox=True, shadow=True, ncol=4)
     plt.show()
 
-#figure_3([BPRMF])
+figure_3([BPRMF, LDA, PureSVD, SLIM])
