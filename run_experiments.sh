@@ -1,4 +1,3 @@
-python3 hello_world.py
 
 
 python3 run_metric.py --data ml-1m --model CHI2 --conduct sh --age N
