@@ -474,3 +474,5 @@ if __name__ == '__main__':
     print("_________________________________")
     stop = time.time()
     print('Time elapsed: ', np.round(stop-start, 4), ' s')
+    f = open("Experiment_times.txt", "w")
+    f.write(args.model + " " + args.age + " " + args.conduct + " " + str(np.round(stop-start, 4)) + " s  \n")
