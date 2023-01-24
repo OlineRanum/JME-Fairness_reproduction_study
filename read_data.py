@@ -74,7 +74,7 @@ class LibraryThing(DatasetLoader):
         lines = file.readlines()[1:]
 
         linecount = 0
-        for line in tqdm(range(len(self.ndatapoints))):
+        for line in tqdm(range(self.ndatapoints)):
             try:
                 try:
                     line_ = lines[line].split('=')
