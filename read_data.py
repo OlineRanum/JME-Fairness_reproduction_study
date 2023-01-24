@@ -18,44 +18,36 @@ class DatasetLoader(object):
         """
         raise NotImplementedError
 
-class MovieLens100K(DatasetLoader):
-    def __init__(self, data_dir):
+class MovieLens100k(DatasetLoader):
+    def _init_(self, data_dir):
         self.fpath_rate = os.path.join(data_dir, 'u.data')
-        self.fpath_user = os.path.join(data_dir, 'u.user')
-        self.fpath_item = os.path.join(data_dir, 'u.item')
+        self.fpath_gender = os.path.join(data_dir, 'u.user')
+        self.fpath_genre = os.path.join(data_dir, 'u.item')
 
     def load(self):
-        """ 
-        Load datasets from rate, user and item sources
-        """
+        # Load data
         df_rate = pd.read_csv(self.fpath_rate,
-                              delim_whitespace=True,
+                              sep='\t',
                               engine='python',
                               names=['user', 'item', 'rate', 'time'],
                               usecols=['user', 'item', 'rate'])
-        
-        df_user = pd.read_csv(self.fpath_user,
-                              sep='\|',
-                              engine='python',
-                              names=['user', 'age', 'gender', 'occupation', 'Zip-code'],
-                              usecols=['user', 'age', 'gender'])[['user', 'gender', 'age']]
 
-        df_item = pd.read_csv(self.fpath_item,
-                              sep='\|+',
-                              engine='python',
-                              names=['item', 'title', 'release', 'videorelease', 'url', 'g0', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
-                              'g16', 'g17', 'g18'],
-                              usecols=['item', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
-                              'g16', 'g17', 'g18'])
+        df_gender = pd.read_csv(self.fpath_gender,
+                                sep='|',
+                                engine='python',
+                                names=['user', 'age', 'gender', 'occupation', 'zip'],
+                                usecols=['user', 'gender'])
 
-        df = pd.merge(df_rate, df_user, on='user')
+        df_rate['user'] = df_rate['user'].astype(str)
+        df_gender['user'] = df_gender['user'].astype(str)
+
+        df = pd.merge(df_rate, df_gender, on='user')
         df = df.dropna(axis=0, how='any')
 
+        # TODO: Remove negative rating?
+        df = df[df['rate'] > 3]
         df = df.reset_index().drop(['index'], axis=1)
-        df = pd.merge(df, df_item, on='item')
 
-        df.user = df.user-1
-        
         df, item_mapping = convert_unique_idx(df, 'item')
 
         return df, item_mapping
@@ -335,6 +327,7 @@ def genre_ml100k_index(df):
         ['item', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
          'g16', 'g17', 'g18']]
     df_genre = df_genre.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True).drop(columns=['item'])
+    print('df genre', df_genre)
     genre_name = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
                   'g16', 'g17', 'g18']
     index_genre = []
@@ -346,16 +339,71 @@ def genre_ml100k_index(df):
 
     return index_genre, genre_mask
 
-# def review_length_index(df):
-#     df_length = df[['item', 'commentlength']]
+def engagement_index(df):
+    df_length = df[['item', 'commentlength']]
+    df_length = df_length.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True)
+    ls = df_length['commentlength'].tolist()
+
+    for i in range(len(ls)):
+        # for j in range(len(ls[i])):
+        if ls[i] <= 50:
+            ls[i] = 0
+        elif 50 < ls[i] <= 100:
+            ls[i] = 1
+        elif 100 < ls[i] <= 150:
+            ls[i]= 2
+        elif 150 < ls[i] <= 200:
+            ls[i] = 3
+        elif 200 < ls[i] <= 250:
+            ls[i] = 4
+        elif 250 < ls[i] <= 300:
+            ls[i] = 5
+        elif 300 < ls[i] <= 350:
+            ls[i] = 6
+        elif 350 < ls[i] <= 400:
+            ls[i] = 7
+        elif 400 < ls[i] <= 450:
+            ls[i] = 8
+        elif 450 < ls[i] <= 500:
+            ls[i] = 9
+        elif 500 < ls[i] <= 550:
+            ls[i] = 10
+        elif 550 < ls[i] <= 600:
+            ls[i] = 11
+        elif 600 < ls[i] <= 650:
+            ls[i] = 12
+        elif 650 < ls[i] <= 700:
+            ls[i] = 13
+        elif 700 < ls[i] <= 750:
+            ls[i] = 14
+        elif 750 < ls[i] <= 800:
+            ls[i] = 15
+        elif 800 < ls[i] <= 850:
+            ls[i] = 16
+        elif ls[i] > 850:
+            ls[i] = 17
+
+    genre_mask = torch.zeros(18, len(df_length)) # [18, 3706]
+    for i in range(len(df_length)):
+        for k in range(0, 18):
+            if k in ls:
+                genre_mask[k] = 1
+
+    index_genre = [] #list 18
+    for i in range(genre_mask.shape[0]):
+        index_genre.append(torch.tensor(np.where(genre_mask[i] == 1)[0]).long())
+    
+    return index_genre, genre_mask
 
 
 def genre_ml1m_index(df):
     df_genre = df[['item', 'genre']]
     df_genre = df_genre.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True)
+    # ls = df_genre['commentlength'].tolist()
     ls = df_genre['genre'].tolist()
     for i in range(len(ls)):
         ls[i] = ls[i].split("|")
+    
     for i in range(len(ls)):
         for j in range(len(ls[i])):
             if ls[i][j] == 'Action':
@@ -395,7 +443,6 @@ def genre_ml1m_index(df):
             elif ls[i][j] == 'Western':
                 ls[i][j] = 17
 
-    # print("ls:", ls)
 
     genre_mask = torch.zeros(18, len(df_genre)) # [18, 3706]
     for i in range(len(df_genre)):
@@ -479,6 +526,13 @@ def obtain_group_index(df, args):
 
     return index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask
 
+def obtain_group_index_tl(df, args):
+    user_size = len(df['user'].unique())
+    #matrices of where in the df there is an index for each group
+    index_engagement, engagement_mask = engagement_index(df)
+    index_helpful, helpful_mask = age_index(df, user_size, args.data)
+
+    return index_engagement, index_helpful, engagement_mask, helpful_mask
 
 def obtain_group_index_tl(df, args):
     user_size = len(df['user'].unique())
@@ -492,12 +546,13 @@ def obtain_group_index_tl(df, args):
 
 def parser_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, default="librarything")
+    parser.add_argument("--data", type=str, default="lt")
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     args = parser_args()
     df, item_mapping, matrix_label, user_size, item_size = preprocessing(args)
+    index_engagement, index_helpful, engagement_mask, helpful_mask = obtain_group_index_tl(df, args)
     # print("matrix_label:", matrix_label.todense().shape)
-    print(df)
+    # print(df)
