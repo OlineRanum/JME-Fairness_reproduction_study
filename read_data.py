@@ -6,7 +6,6 @@ from scipy.sparse import csr_matrix
 from collections import Counter
 from copy import deepcopy
 import argparse
-from tqdm import tqdm 
 from sklearn.model_selection import train_test_split
 import scipy
 
@@ -65,27 +64,27 @@ class MovieLens100K(DatasetLoader):
 class LibraryThing(DatasetLoader):
     def __init__(self, data_dir):
         self.path = os.path.join(data_dir, 'reviews.txt')
-        self.ndatapoints = 100000
+        self.ndatapoints = 100
     
     def load(self):
-        df = pd.DataFrame(columns = ['item', 'flags', 'rate', 'nhelpful', 'comment', 'user', 'commentlength'], 
+        df = pd.DataFrame(columns = ['item', 'flags', 'rate', 'nhelpful',  'user', 'commentlength'], 
                    index = np.arange(1, self.ndatapoints, 1))
         file = open(self.path, 'r')
         lines = file.readlines()[1:]
 
         linecount = 0
-        for line in tqdm(range(self.ndatapoints)):
+        for line in lines:
             try:
                 try:
-                    line_ = lines[line].split('=')
-                    line_ = line_[1]
-                    comment = line_.split(", 'nhelpful':")[0]
+                    line = line.split('=')
+                    line = line[1]
+                    comment = line.split(", 'nhelpful':")[0]
                     df['commentlength'].iloc[linecount] = len(comment[14:-1].split(" "))
-                    metadata = line_.split(", 'nhelpful':")[1]
+                    metadata = line.split(", 'nhelpful':")[1]
                     #df['comment'].iloc[linecount] = comment[14:-1]
                     metadata = metadata.split(':')    
                     df['nhelpful'].iloc[linecount] = float(metadata[0].split(',')[0][1:])
-                    df['item'].iloc[linecount] = metadata[2].split(',')[0][2:-1]
+                    df['item'].iloc[linecount] = int(metadata[2].split(',')[0][2:-1])
                     df['flags'].iloc[linecount] =  metadata[3].split(',')[0]
                     df['user'].iloc[linecount] = metadata[4].split(',')[0][2:-1]
                     df['rate'].iloc[linecount] = float(metadata[5].split(',')[0])
@@ -97,7 +96,13 @@ class LibraryThing(DatasetLoader):
             except IndexError:
                 pass
         
-        return df
+        print(df)
+        df,_ = convert_unique_idx(df, 'user')
+        df, item_mapping = convert_unique_idx(df, 'item')
+        print(df)
+
+
+        return df, item_mapping
 
 
 class MovieLens1M(DatasetLoader):
@@ -399,13 +404,14 @@ def preprocessing(args):
     if args.data == 'ml-1m':
         df, item_mapping = MovieLens1M(data_dir).load()
     elif args.data == 'lt':
-        df = LibraryThing(data_dir).load()
+        df, item_mapping = LibraryThing(data_dir).load()
     else:
         df, item_mapping = MovieLens100K(data_dir).load()
 
+   
     user_size = len(df['user'].unique())
     item_size = len(df['item'].unique())
-
+    
     print("user_size:", user_size)
     print("item_size:", item_size)
 
@@ -435,7 +441,7 @@ def obtain_group_index(df, args):
     """
     
     user_size = len(df['user'].unique())
-
+    
     #matrices of where in the df there is an index for each case
     index_F, index_M = gender_index(df)
     #list of size 2 that has the #women and #men
@@ -455,6 +461,16 @@ def obtain_group_index(df, args):
     # print("genre_mask:", genre_mask, genre_mask.shape)
 
     return index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask
+
+
+def obtain_group_index_tl(df, args):
+    user_size = len(df['user'].unique())
+    #matrices of where in the df there is an index for each group
+    index_engagement, engagement_mask = engagement_index(df)
+    index_helpful, helpful_mask = helfulness_index(df)
+
+    return index_engagement, index_helpful, engagement_mask, helpful_mask
+
 
 
 def parser_args():

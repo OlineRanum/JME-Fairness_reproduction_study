@@ -8,7 +8,7 @@ import argparse
 import time
 from argparse import ArgumentParser
 # from . import read_data
-from read_data import preprocessing, obtain_group_index
+from read_data import preprocessing, obtain_group_index, obtain_group_index_tl
 from scipy.special import softmax
 from tqdm import tqdm, trange
 from Disparity_Metrics import *
@@ -17,7 +17,7 @@ import json
 
 def parser_args():
     parser = ArgumentParser(description="JMEF")
-    parser.add_argument('--data', type=str, default='ml-1m', choices=['ml-1m', 'ml-100k'],
+    parser.add_argument('--data', type=str, default='ml-1m', choices=['ml-1m', 'ml-100k', 'lt'],
                         help="File path for data")
     parser.add_argument('--gpu_id', type=int, default=0)
     # Seed
@@ -174,8 +174,13 @@ def eval_function_static(save_df, user_label, item_label, matrix_label, args):
 
 
 def compute_stochas(args):
-    save_df = pd.read_csv('./saved_model/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
+    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
+        save_df = pd.read_csv('./saved_model/ml/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
                           compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
+    elif args.data == 'lt':
+        save_df = pd.read_csv('./saved_model/runs-libraryThing/run-{}-libraryThing-fold1.txt.gz'.format(args.model),
+                          compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
+
     save_df = save_df.rename(columns={0: "user", 2: "item", 4: "score"})
     save_df.user = save_df.user - 1
     save_df['item'] = save_df['item'].map(item_mapping)
@@ -244,10 +249,16 @@ def compute_stochas(args):
                     "./save_exp/{}/{}_all_{}.json".format(args.data, key, args.model), "w") as fp:
                 json.dump(dict_all[key], fp)
 
+    return dict_all
+
 
 def compute_static(args):
     # Load deterministic ranker
-    save_df = pd.read_csv('./saved_model/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
+    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
+        save_df = pd.read_csv('./saved_model/ml/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
+                          compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
+    elif args.data == 'lt':
+        save_df = pd.read_csv('./saved_model/runs-libraryThing/run-{}-libraryThing-fold1.txt.gz'.format(args.model),
                           compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
     
     # Rename columns of dataframe
@@ -310,8 +321,13 @@ def compute_static(args):
 
 
 def compute_exp_matrix(args):
-    save_df = pd.read_csv('./saved_model/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
+    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
+        save_df = pd.read_csv('./saved_model/ml/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
                           compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
+    elif args.data == 'lt':
+        save_df = pd.read_csv('./saved_model/runs-libraryThing/run-{}-libraryThing-fold1.txt.gz'.format(args.model),
+                          compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
+                          
     save_df = save_df.rename(columns={0: "user", 2: "item", 4: "score"})
     save_df.user = save_df.user - 1
     save_df['item'] = save_df['item'].map(item_mapping)
@@ -427,30 +443,36 @@ if __name__ == '__main__':
     """read data and attribute label"""
     df, item_mapping, matrix_label, user_size, item_size = preprocessing(args)
     # Obtain attribute indices
-    index_F, index_M, index_gender, index_age, index_genre, index_pop, age_matrix, pop_mask, genre_matrix \
-        = obtain_group_index(df, args)
+    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
+        index_F, index_M, index_gender, index_age, index_genre, index_pop, age_matrix, pop_mask, genre_matrix \
+            = obtain_group_index(df, args)
 
-    # Build matrix with gender information
-    gender_matrix = torch.zeros(2, len(index_F) + len(index_M)) #[2, #females + #males] , 1st row for F 2nd for M
-    for ind in index_F:
-        gender_matrix[0][ind] = 1
-    for ind in index_M:
-        gender_matrix[1][ind] = 1
-    print("gender_matrix:", gender_matrix.shape)
-    print("genre_matrix:", genre_matrix.shape)
-    # print("gender_matrix:", gender_matrix.sum(1))
-    # print("genre_matrix:", genre_matrix.sum(1))
-    gender_num = len(index_gender)
-    genre_num = len(index_genre)
-    print("gender_num:", gender_num)
-    print("genre_num:", genre_num)
+        # Build matrix with gender information
+        gender_matrix = torch.zeros(2, len(index_F) + len(index_M)) #[2, #females + #males] , 1st row for F 2nd for M
+        for ind in index_F:
+            gender_matrix[0][ind] = 1
+        for ind in index_M:
+            gender_matrix[1][ind] = 1
+        print("gender_matrix:", gender_matrix.shape)
+        print("genre_matrix:", genre_matrix.shape)
+        # print("gender_matrix:", gender_matrix.sum(1))
+        # print("genre_matrix:", genre_matrix.sum(1))
+        gender_num = len(index_gender)
+        genre_num = len(index_genre)
+        print("gender_num:", gender_num)
+        print("genre_num:", genre_num)
 
-    if args.age == 'Y':
-        user_label = age_matrix #[7,6040]
-    else:
-        user_label = gender_matrix  # .to(args.device) [2,6040]
-        
-    item_label = genre_matrix  # .to(args.device) [18, 3706]
+        if args.age == 'Y':
+            user_label = age_matrix #[7,6040]
+        else:
+            user_label = gender_matrix  # .to(args.device) [2,6040]
+            
+        item_label = genre_matrix  # .to(args.device) [18, 3706]
+
+    elif (args.data == 'lt'):
+        index_engagement, index_helpful, engagement_matrix, helpful_matrix = obtain_group_index_tl(df, args) 
+        user_label = helpful_matrix 
+        item_label = engagement_matrix
 
     print("user_label:", user_label.shape)
     print("item_label:", item_label.shape)
