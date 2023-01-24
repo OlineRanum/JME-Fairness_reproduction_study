@@ -59,6 +59,47 @@ class MovieLens100K(DatasetLoader):
         df, item_mapping = convert_unique_idx(df, 'item')
 
         return df, item_mapping
+
+
+class LibraryThing(DatasetLoader):
+    def __init__(self, data_dir):
+        self.path = os.path.join(data_dir, 'reviews.txt')
+        self.ndatapoints = 100000
+    
+    def load(self):
+        df = pd.DataFrame(columns = ['work', 'flags', 'stars', 'nhelpful', 'comment', 'user', 'commentlength'], 
+                   index = np.arange(1, self.ndatapoints, 1))
+        file = open(self.path, 'r')
+        lines = file.readlines()[1:]
+
+        linecount = 0
+        for line in lines:
+            try:
+                try:
+                    line = line.split('=')
+                    line = line[1]
+                    comment = line.split(", 'nhelpful':")[0]
+                    df['commentlength'].iloc[linecount] = len(comment[14:-1].split(" "))
+                    metadata = line.split(", 'nhelpful':")[1]
+                    #df['comment'].iloc[linecount] = comment[14:-1]
+                    metadata = metadata.split(':')    
+                    df['nhelpful'].iloc[linecount] = float(metadata[0].split(',')[0][1:])
+                    df['work'].iloc[linecount] = metadata[2].split(',')[0][2:-1]
+                    df['flags'].iloc[linecount] =  metadata[3].split(',')[0]
+                    df['user'].iloc[linecount] = metadata[4].split(',')[0][2:-1]
+                    df['stars'].iloc[linecount] = float(metadata[5].split(',')[0])
+                    linecount +=1
+                    print('success')
+                    if linecount > self.ndatapoints:
+                        break
+                except ValueError:
+                    pass
+            except IndexError:
+                pass
+        
+        return df
+
+
 class MovieLens1M(DatasetLoader):
     def __init__(self, data_dir):
         self.fpath_rate = os.path.join(data_dir, 'ratings.dat')
