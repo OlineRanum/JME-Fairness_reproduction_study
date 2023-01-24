@@ -96,10 +96,9 @@ class LibraryThing(DatasetLoader):
             except IndexError:
                 pass
         
-        print(df)
-        df,_ = convert_unique_idx(df, 'user')
+        df, user_mapping = convert_unique_idx(df, 'user')
         df, item_mapping = convert_unique_idx(df, 'item')
-        print(df)
+        return df, item_mapping
 
 
         return df, item_mapping
@@ -194,9 +193,6 @@ def gender_index(df):
     return index_F, index_M
 
 
-
-
-
 def age_mapping_ml100k(age):
     if age < 18:
         return 0
@@ -233,43 +229,60 @@ def age_mapping_ml1m(age):
     else:
         print('Error in age data, age set = ', age)
 
-
+def help_mapping(nhelpful):
+    if nhelpful == 0 :
+        return 0
+    elif nhelpful == 1:
+        return 1
+    elif nhelpful == 2:
+        return 2
+    elif nhelpful == 3:
+        return 3
+    elif nhelpful == 4:
+        return 4
+    elif nhelpful == 5:
+        return 5
+    elif nhelpful >= 6:
+        return 6
+    else:
+        print('Error in nhelpful data, nhelpful set = ', nhelpful)
 
 def age_index(df, user_size, data):
     """ 
     """
-    age_dic = df.groupby('user')['age'].apply(list).to_dict()
-    
-    print("age_dic", len(age_dic))
-    for id, age in age_dic.items():
-        if data == 'ml-100k':
-            age_dic[id] = age_mapping_ml100k(age[0])
-        elif data == 'ml-1m':
-            age_dic[id] = age_mapping_ml1m(age[0])
+    if data in ('ml-100k', 'ml-1m'):
+        dic = df.groupby('user')['age'].apply(list).to_dict()
+    else:
+        dic = df.groupby('user')['nhelpful'].apply(list).to_dict()
 
+    for id, attribute in dic.items():
+        if data == 'ml-100k':
+            dic[id] = age_mapping_ml100k(attribute[0])
+        elif data == 'ml-1m':
+            dic[id] = age_mapping_ml1m(attribute[0])
+        else:
+            dic[id] = help_mapping(attribute[0])
 
     index_age = [[], [], [], [], [], [], []]
     
-    for i in range(0, len(age_dic)):
-        if 0 == age_dic[i]:
+    for i in range(0, len(dic)):
+        if 0 == dic[i]:
             index_age[0].append(i)
-        elif 1 == age_dic[i]:
+        elif 1 == dic[i]:
             index_age[1].append(i)
-        elif 2 == age_dic[i]:
+        elif 2 == dic[i]:
             index_age[2].append(i)
-        elif 3 == age_dic[i]:
+        elif 3 == dic[i]:
             index_age[3].append(i)
-        elif 4 == age_dic[i]:
+        elif 4 == dic[i]:
             index_age[4].append(i)
-        elif 5 == age_dic[i]:
+        elif 5 == dic[i]:
             index_age[5].append(i)
-        elif 6 == age_dic[i]:
+        elif 6 == dic[i]:
             index_age[6].append(i)
 
     for i in range(len(index_age)):
         index_age[i] = np.array(index_age[i])
-    
-    
 
     age_type = 7   
     age_mask = torch.zeros(age_type, user_size)
@@ -280,6 +293,7 @@ def age_index(df, user_size, data):
 
 
     return index_age, age_mask
+
 
 #i am not sure i think it divides movies in 5 categories from most common to less
 def pop_index(df):
@@ -331,6 +345,9 @@ def genre_ml100k_index(df):
     genre_mask = torch.FloatTensor(genre_mask)
 
     return index_genre, genre_mask
+
+# def review_length_index(df):
+#     df_length = df[['item', 'commentlength']]
 
 
 def genre_ml1m_index(df):
@@ -406,7 +423,7 @@ def preprocessing(args):
     elif args.data == 'lt':
         df, item_mapping = LibraryThing(data_dir).load()
     else:
-        df, item_mapping = MovieLens100K(data_dir).load()
+        df, item_mapping = LibraryThing(data_dir).load()
 
    
     user_size = len(df['user'].unique())
@@ -475,11 +492,12 @@ def obtain_group_index_tl(df, args):
 
 def parser_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, default="ml-1m")
+    parser.add_argument("--data", type=str, default="librarything")
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     args = parser_args()
     df, item_mapping, matrix_label, user_size, item_size = preprocessing(args)
-    print("matrix_label:", matrix_label.todense().shape)
+    # print("matrix_label:", matrix_label.todense().shape)
+    print(df)
