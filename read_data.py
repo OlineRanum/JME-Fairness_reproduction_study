@@ -6,6 +6,7 @@ from scipy.sparse import csr_matrix
 from collections import Counter
 from copy import deepcopy
 import argparse
+from tqdm import tqdm 
 from sklearn.model_selection import train_test_split
 import scipy
 
@@ -67,29 +68,28 @@ class LibraryThing(DatasetLoader):
         self.ndatapoints = 100000
     
     def load(self):
-        df = pd.DataFrame(columns = ['work', 'flags', 'stars', 'nhelpful', 'comment', 'user', 'commentlength'], 
+        df = pd.DataFrame(columns = ['item', 'flags', 'rate', 'nhelpful', 'comment', 'user', 'commentlength'], 
                    index = np.arange(1, self.ndatapoints, 1))
         file = open(self.path, 'r')
         lines = file.readlines()[1:]
 
         linecount = 0
-        for line in lines:
+        for line in tqdm(range(len(self.ndatapoints))):
             try:
                 try:
-                    line = line.split('=')
-                    line = line[1]
-                    comment = line.split(", 'nhelpful':")[0]
+                    line_ = lines[line].split('=')
+                    line_ = line_[1]
+                    comment = line_.split(", 'nhelpful':")[0]
                     df['commentlength'].iloc[linecount] = len(comment[14:-1].split(" "))
-                    metadata = line.split(", 'nhelpful':")[1]
+                    metadata = line_.split(", 'nhelpful':")[1]
                     #df['comment'].iloc[linecount] = comment[14:-1]
                     metadata = metadata.split(':')    
                     df['nhelpful'].iloc[linecount] = float(metadata[0].split(',')[0][1:])
-                    df['work'].iloc[linecount] = metadata[2].split(',')[0][2:-1]
+                    df['item'].iloc[linecount] = metadata[2].split(',')[0][2:-1]
                     df['flags'].iloc[linecount] =  metadata[3].split(',')[0]
                     df['user'].iloc[linecount] = metadata[4].split(',')[0][2:-1]
-                    df['stars'].iloc[linecount] = float(metadata[5].split(',')[0])
+                    df['rate'].iloc[linecount] = float(metadata[5].split(',')[0])
                     linecount +=1
-                    print('success')
                     if linecount > self.ndatapoints:
                         break
                 except ValueError:
@@ -398,6 +398,8 @@ def preprocessing(args):
     #following line is commented out because otherwise there is a local var df referenced before assignment error
     if args.data == 'ml-1m':
         df, item_mapping = MovieLens1M(data_dir).load()
+    elif args.data == 'lt':
+        df = LibraryThing(data_dir).load()
     else:
         df, item_mapping = MovieLens100K(data_dir).load()
 
