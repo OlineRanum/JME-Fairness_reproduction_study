@@ -114,7 +114,7 @@ class MovieLens1M(DatasetLoader):
                               sep='::',
                               engine='python',
                               names=['user', 'gender', 'age', 'occupation', 'Zip-code'],
-                              usecols=['user', 'gender', 'age'])
+                              usecols=['user', 'gender', 'occupation', 'age'])
         # O: Load movie item information
         df_item = pd.read_csv(self.fpath_item,
                               sep='::',
@@ -180,6 +180,26 @@ def gender_index(df):
     index_M = np.array(index_M) #4331 men
     
     return index_F, index_M
+
+def occupation_index(df, user_size):
+    occup_dic = df.groupby('user')['occupation'].apply(list).to_dict()
+    occupations = df['occupation'].unique().astype(int) # List the available occupations
+    index_occup = {key: [] for key in occupations}
+
+    for i in range(0, len(occup_dic)):
+        occupation = int(occup_dic[i][0])
+        index_occup[occupation].append(i)
+
+    for i in range(len(index_occup)):
+        index_occup[i] = np.array(index_occup[i])
+    
+    occup_mask = torch.zeros(len(occupations), user_size)
+    for i in range(user_size):
+        for k in range(len(occupations)):
+            if i in index_occup[k]:
+                occup_mask[k][i] = 1
+    
+    return index_occup, occup_mask
 
 
 def age_mapping_ml100k(age):
@@ -510,6 +530,7 @@ def obtain_group_index(df, args):
     #an array of arrays for all 7 age groups and an array that has 1 if the user belongs to a specific age group
     index_age, age_mask = age_index(df, user_size, args.data)
     index_pop, pop_mask = pop_index(df)
+    index_occup, occup_mask = occupation_index(df, user_size)
     # print("index_age:", index_age)
     # print("index_pop:", index_pop)
     index_genre = []
@@ -521,7 +542,7 @@ def obtain_group_index(df, args):
     # print("pop_mask:", pop_mask, pop_mask.shape)
     # print("genre_mask:", genre_mask, genre_mask.shape)
 
-    return index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask
+    return index_F, index_M, index_gender, index_age, index_genre, index_pop, index_occup, age_mask, pop_mask, occup_mask, genre_mask
 
 def obtain_group_index_tl(df, args):
     user_size = len(df['user'].unique())
