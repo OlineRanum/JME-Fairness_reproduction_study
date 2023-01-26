@@ -1,6 +1,6 @@
 # JME-Fairness
 
-This repository contains the implementation for paper: [Joint Multisided Exposure Fairness for Recommendation](https://arxiv.org/abs/2205.00048) (SIGIR 2022).
+This repository reproduces the paper: [Joint Multisided Exposure Fairness for Recommendation](https://arxiv.org/abs/2205.00048) (SIGIR 2022).
 
 ## Requirements
 
