@@ -56,7 +56,7 @@ class MovieLens100k(DatasetLoader):
 class LibraryThing(DatasetLoader):
     def __init__(self, data_dir, ndatapoints):
         self.path = os.path.join(data_dir, 'reviews.txt')
-        self.ndatapoints = 100
+        self.ndatapoints = ndatapoints
     
     def load(self):
         df = pd.DataFrame([], columns = ['comment','nhelpful', 'unixtime', 'work', 'flags', 'user', 'stars', 'time'])
@@ -77,7 +77,10 @@ class LibraryThing(DatasetLoader):
 
         df = pd.DataFrame(extracted_data, columns=['comment', 'nhelpful', 'unixtime', 'work', 'flags', 'user', 'stars', 'time'])
         df['commentlength'] = df['comment'].str.split().apply(len)
-        df.rename(columns = {'comment':'item', 'stars':'rate'}, inplace = True)
+        df.rename(columns = {'work':'item', 'stars':'rate'}, inplace = True)
+        df['rate'] = df['rate'].astype(float)
+        df['nhelpful'] = df['nhelpful'].astype(float)
+        df['item'] = df['item'].astype(int)
 
         
         df, user_mapping = convert_unique_idx(df, 'user')
@@ -522,6 +525,7 @@ def obtain_group_index_tl(df, args):
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=str, default="lt")
+    parser.add_argument("--ndatapoints", type=int, default=5000)
     return parser.parse_args()
 
 
@@ -533,4 +537,4 @@ if __name__ == '__main__':
     else:
         index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask = obtain_group_index(df, args)
     # print("matrix_label:", matrix_label.todense().shape)
-    print(df.head())
+    print(len(df))
