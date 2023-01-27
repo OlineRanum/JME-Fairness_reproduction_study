@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 import pandas as pd
@@ -5,475 +6,534 @@ from scipy.sparse import csr_matrix
 from collections import Counter
 from copy import deepcopy
 import argparse
-import time
-from argparse import ArgumentParser
-# from . import read_data
-from read_data import preprocessing, obtain_group_index, obtain_group_index_tl
-from scipy.special import softmax
-from tqdm import tqdm, trange
-from Disparity_Metrics import *
-import json
+from sklearn.model_selection import train_test_split
+import scipy
+
+
+class DatasetLoader(object):
+    def load(self):
+        """Minimum condition for dataset:
+          * All users must have at least one item record.
+          * All items must have at least one user record.
+        """
+        raise NotImplementedError
+
+class MovieLens100k(DatasetLoader):
+    def _init_(self, data_dir):
+        self.fpath_rate = os.path.join(data_dir, 'u.data')
+        self.fpath_gender = os.path.join(data_dir, 'u.user')
+        self.fpath_genre = os.path.join(data_dir, 'u.item')
+
+    def load(self):
+        # Load data
+        df_rate = pd.read_csv(self.fpath_rate,
+                              sep='\t',
+                              engine='python',
+                              names=['user', 'item', 'rate', 'time'],
+                              usecols=['user', 'item', 'rate'])
+
+        df_gender = pd.read_csv(self.fpath_gender,
+                                sep='|',
+                                engine='python',
+                                names=['user', 'age', 'gender', 'occupation', 'zip'],
+                                usecols=['user', 'gender'])
+
+        df_rate['user'] = df_rate['user'].astype(str)
+        df_gender['user'] = df_gender['user'].astype(str)
+
+        df = pd.merge(df_rate, df_gender, on='user')
+        df = df.dropna(axis=0, how='any')
+
+        # TODO: Remove negative rating?
+        df = df[df['rate'] > 3]
+        df = df.reset_index().drop(['index'], axis=1)
+
+        df, item_mapping = convert_unique_idx(df, 'item')
+
+        return df, item_mapping
+
+
+class LibraryThing(DatasetLoader):
+    def __init__(self, data_dir, ndatapoints):
+        self.path = os.path.join(data_dir, 'reviews.txt')
+        self.ndatapoints = ndatapoints
+    
+    def load(self):
+        df = pd.DataFrame([], columns = ['comment','nhelpful', 'unixtime', 'work', 'flags', 'user', 'stars', 'time'])
+        file = open(self.path, 'r')
+        lines = file.readlines()[1:]
+
+        extracted_data = []
+        linecount = 0
+        for line in lines:
+            line = line.split('] = ')
+            line = line[1]
+            reviews = eval(line)
+            linecount +=1
+            extracted_data.append([reviews.get('comment', ''), reviews.get('nhelpful', '0'), reviews.get('unixtime', '0'), reviews.get('work', ''), reviews.get('flags', ''), reviews.get('user', ''), reviews.get('stars', '0'), reviews.get('time', '')])
+        
+            if linecount > self.ndatapoints:
+                    break
+
+        df = pd.DataFrame(extracted_data, columns=['comment', 'nhelpful', 'unixtime', 'work', 'flags', 'user', 'stars', 'time'])
+        df['commentlength'] = df['comment'].str.split().apply(len)
+        df.rename(columns = {'comment':'item', 'stars':'rate'}, inplace = True)
+        df['rate'] = df['rate'].astype(float)
+        df['nhelpful'] = df['nhelpful'].astype(float)
+        df['item'] = df['item'].astype(int)
+
+        
+        df, user_mapping = convert_unique_idx(df, 'user')
+        df, item_mapping = convert_unique_idx(df, 'item')
+        return df, item_mapping
+
+
+
+
+class MovieLens1M(DatasetLoader):
+    def __init__(self, data_dir):
+        self.fpath_rate = os.path.join(data_dir, 'ratings.dat')
+        self.fpath_user = os.path.join(data_dir, 'users.dat')
+        self.fpath_item = os.path.join(data_dir, 'movies.dat')
+
+    def load(self):
+        """ 
+        Load datasets from rate, user and item sources
+        """
+        # O: Load movie rating information 
+        df_rate = pd.read_csv(self.fpath_rate,
+                              sep='::',
+                              engine='python',
+                              names=['user', 'item', 'rate', 'time'],
+                              usecols=['user', 'item', 'rate'])
+        # O: Load user demographic information
+        df_user = pd.read_csv(self.fpath_user,
+                              sep='::',
+                              engine='python',
+                              names=['user', 'gender', 'age', 'occupation', 'Zip-code'],
+                              usecols=['user', 'gender', 'age'])
+        # O: Load movie item information
+        df_item = pd.read_csv(self.fpath_item,
+                              sep='::',
+                              engine='python',
+                              names=['item', 'title', 'genre'],
+                              usecols=['item', 'genre'],
+                              encoding='unicode_escape')
+
+        # O: Merge all data sources and clean dataframe
+        df = pd.merge(df_rate, df_user, on='user')
+        df = df.dropna(axis=0, how='any')
+
+        # df = df[df['rate'] > 3]
+        
+        df = df.reset_index().drop(['index'], axis=1)
+        df = pd.merge(df, df_item, on='item')
+        
+        # O: Reset index of users to zero 
+        df.user = df.user - 1
+
+
+        # O: Reassign movie indices
+        df, item_mapping = convert_unique_idx(df, 'item')
+
+        return df, item_mapping
+
+
+def convert_unique_idx(df, column_name):
+    """ O: Switch the index notation of the movie reviews in DataFrame into an ordered system. 
+    Return:
+        df: Dataframe with new index system
+        column_dict: Mapping between original index and new ordered index
+    """
+    # O: Build dictionary of index mappings from original definition to ordered definition
+    column_dict = {x: i for i, x in enumerate(df[column_name].unique())}
+    # O: Change index of dataframe
+    df[column_name] = df[column_name].apply(column_dict.get)
+    df[column_name] = df[column_name].astype('int')
+    
+    # O: Check that new index system is of expected size
+    assert df[column_name].min() == 0
+    assert df[column_name].max() == len(column_dict) - 1
+
+    
+    return df, column_dict
+
+
+def gender_index(df):
+    """ O: Find index per gender 
+    return:
+        index_F: List of index of Females
+        index_M: List of index of Males
+    """
+    gender_dic = df.groupby('user')['gender'].apply(list).to_dict()
+    index_F = []
+    index_M = []
+    for i in range(0, len(gender_dic)):
+        if 'f' in gender_dic[i] or 'F' in gender_dic[i]:
+            index_F.append(i)
+        else:
+            index_M.append(i)
+    index_F = np.array(index_F) #1709 women
+    index_M = np.array(index_M) #4331 men
+    
+    return index_F, index_M
+
+
+def age_mapping_ml100k(age):
+    if age < 18:
+        return 0
+    elif age < 25:
+        return 1
+    elif age < 35:
+        return 2
+    elif age < 45:
+        return 3
+    elif age < 50:
+        return 4
+    elif age < 56:
+        return 5
+    elif age >= 56:
+        return 6
+    else:
+        print('Error in age data, age set = ', age)
+
+def age_mapping_ml1m(age):
+    if age == 1:
+        return 0
+    elif age == 18:
+        return 1
+    elif age == 25:
+        return 2
+    elif age == 35:
+        return 3
+    elif age == 45:
+        return 4
+    elif age == 50:
+        return 5
+    elif age == 56:
+        return 6
+    else:
+        print('Error in age data, age set = ', age)
+
+def help_mapping(nhelpful):
+    if 0 <= nhelpful < 1 :
+        return 0
+    elif 1 <= nhelpful < 2:
+        return 1
+    elif 2 <= nhelpful < 3:
+        return 2
+    elif 3 <= nhelpful < 4:
+        return 3
+    elif 4 <= nhelpful < 5:
+        return 4
+    elif 5 <= nhelpful < 6:
+        return 5
+    elif nhelpful >= 6:
+        return 6
+    else:
+        print('Error in nhelpful data, nhelpful set = ', nhelpful)
+
+def age_index(df, user_size, data):
+    """ 
+    """
+    if data in ('ml-100k', 'ml-1m'):
+        dic = df.groupby('user')['age'].apply(list).to_dict()
+
+    else:
+        dic = df.groupby('user')['nhelpful'].mean().to_dict()
+
+    for id, attribute in dic.items():
+        id = int(id)
+        if data == 'ml-100k':
+            dic[id] = age_mapping_ml100k(attribute[0])
+        elif data == 'ml-1m':
+            dic[id] = age_mapping_ml1m(attribute[0])
+        elif data == 'lt':
+            dic[id] = help_mapping(attribute)
+        else:
+            print('Mapping not avilable for this dataset')
+
+    index_age = [[], [], [], [], [], [], []]
+    
+    for i in range(0, len(dic)):
+        if 0 == dic[i]:
+            index_age[0].append(i)
+        elif 1 == dic[i]:
+            index_age[1].append(i)
+        elif 2 == dic[i]:
+            index_age[2].append(i)
+        elif 3 == dic[i]:
+            index_age[3].append(i)
+        elif 4 == dic[i]:
+            index_age[4].append(i)
+        elif 5 == dic[i]:
+            index_age[5].append(i)
+        elif 6 == dic[i]:
+            index_age[6].append(i)
+
+    for i in range(len(index_age)):
+        index_age[i] = np.array(index_age[i])
+
+    age_type = 7   
+    age_mask = torch.zeros(age_type, user_size)
+    for i in range(user_size):
+        for k in range(age_type):
+            if i in index_age[k]:
+                age_mask[k][i] = 1
+
+
+    return index_age, age_mask
+
+
+#i am not sure i think it divides movies in 5 categories from most common to less
+def pop_index(df):
+    # count number of reviews per movie
+    count = Counter(df['item'])
+    common = count.most_common() #returns list of tuples of (element, count) sorted by counts(mostly commonly viewed rated movie)
+    item_size = len(set(df['item'])) # = len(common) = 3706
+
+    index_pop = [[], [], [], [], []]
+    
+    for i in range(item_size):
+        #compares the number of occurences of each movie with an occurence in common idk why
+        if count[i] > common[int(0.2 * len(common))][1]:
+            index_pop[0].append(i)
+        elif count[i] > common[int(0.4 * len(common))][1]:
+            index_pop[1].append(i)
+        elif count[i] > common[int(0.6 * len(common))][1]:
+            index_pop[2].append(i)
+        elif count[i] > common[int(0.8 * len(common))][1]:
+            index_pop[3].append(i)
+        else:
+            index_pop[4].append(i)
+  
+    for i in range(len(index_pop)):
+        index_pop[i] = torch.tensor(index_pop[i])
+
+    pop_size = 5
+    pop_mask = torch.zeros(pop_size, item_size) #[5, 3706] 
+    for i in range(item_size):
+        for k in range(pop_size):
+            if i in index_pop[k]:
+                pop_mask[k][i] = 1
+
+    return index_pop, pop_mask
+
+
+def genre_ml100k_index(df):
+    df_genre = df[
+        ['item', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
+         'g16', 'g17', 'g18']]
+    df_genre = df_genre.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True).drop(columns=['item'])
+    
+    genre_name = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
+                  'g16', 'g17', 'g18']
+    index_genre = []
+    for genre in genre_name:
+        index_genre.append(torch.tensor(np.flatnonzero(df_genre[genre])).long())
+
+    genre_mask = df_genre.to_numpy().T
+    genre_mask = torch.FloatTensor(genre_mask)
+
+    return index_genre, genre_mask
+
+def engagement_index(df):
+    df_length = df[['item', 'commentlength']]
+    df_length = df_length.groupby('item')['commentlength'].mean().reset_index()
+    ls = df_length['commentlength'].tolist()
+
+    for i in range(len(ls)):
+        if ls[i] <= 50:
+            ls[i] = 0
+        elif 50 < ls[i] <= 100:
+            ls[i] = 1
+        elif 100 < ls[i] <= 150:
+            ls[i]= 2
+        elif 150 < ls[i] <= 200:
+            ls[i] = 3
+        elif 200 < ls[i] <= 250:
+            ls[i] = 4
+        elif 250 < ls[i] <= 300:
+            ls[i] = 5
+        elif 300 < ls[i] <= 350:
+            ls[i] = 6
+        elif 350 < ls[i] <= 400:
+            ls[i] = 7
+        elif 400 < ls[i] <= 450:
+            ls[i] = 8
+        elif 450 < ls[i] <= 500:
+            ls[i] = 9
+        elif 500 < ls[i] <= 550:
+            ls[i] = 10
+        elif 550 < ls[i] <= 600:
+            ls[i] = 11
+        elif 600 < ls[i] <= 650:
+            ls[i] = 12
+        elif 650 < ls[i] <= 700:
+            ls[i] = 13
+        elif 700 < ls[i] <= 750:
+            ls[i] = 14
+        elif 750 < ls[i] <= 800:
+            ls[i] = 15
+        elif 800 < ls[i] <= 850:
+            ls[i] = 16
+        elif ls[i] > 850:
+            ls[i] = 17
+
+    genre_mask = torch.zeros(18, len(df_length)) 
+    for i in range(len(df_length)):
+        for k in range(0, 18):
+            if k in ls:
+                genre_mask[k] = 1
+
+    index_genre = [] #list 18
+    for i in range(genre_mask.shape[0]):
+        index_genre.append(torch.tensor(np.where(genre_mask[i] == 1)[0]).long())
+    
+    return index_genre, genre_mask
+
+
+def genre_ml1m_index(df):
+    df_genre = df[['item', 'genre']]
+    df_genre = df_genre.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True)
+    ls = df_genre['genre'].tolist()
+    for i in range(len(ls)):
+        ls[i] = ls[i].split("|")
+    
+    for i in range(len(ls)):
+        for j in range(len(ls[i])):
+            if ls[i][j] == 'Action':
+                ls[i][j] = 0
+            elif ls[i][j] == 'Adventure':
+                ls[i][j] = 1
+            elif ls[i][j] == 'Animation':
+                ls[i][j] = 2
+            elif ls[i][j] == "Children's":
+                ls[i][j] = 3
+            elif ls[i][j] == 'Comedy':
+                ls[i][j] = 4
+            elif ls[i][j] == 'Crime':
+                ls[i][j] = 5
+            elif ls[i][j] == 'Documentary':
+                ls[i][j] = 6
+            elif ls[i][j] == 'Drama':
+                ls[i][j] = 7
+            elif ls[i][j] == 'Fantasy':
+                ls[i][j] = 8
+            elif ls[i][j] == 'Film-Noir':
+                ls[i][j] = 9
+            elif ls[i][j] == 'Horror':
+                ls[i][j] = 10
+            elif ls[i][j] == 'Musical':
+                ls[i][j] = 11
+            elif ls[i][j] == 'Mystery':
+                ls[i][j] = 12
+            elif ls[i][j] == 'Romance':
+                ls[i][j] = 13
+            elif ls[i][j] == 'Sci-Fi':
+                ls[i][j] = 14
+            elif ls[i][j] == 'Thriller':
+                ls[i][j] = 15
+            elif ls[i][j] == 'War':
+                ls[i][j] = 16
+            elif ls[i][j] == 'Western':
+                ls[i][j] = 17
+
+
+    genre_mask = torch.zeros(18, len(df_genre)) # [18, 3706]
+    for i in range(len(df_genre)):
+        for k in range(0, 18):
+            if k in ls[i]:
+                genre_mask[k][i] = 1
+
+    index_genre = [] #list 18
+    for i in range(genre_mask.shape[0]):
+        index_genre.append(torch.tensor(np.where(genre_mask[i] == 1)[0]).long())
+    
+    return index_genre, genre_mask
+
+
+def preprocessing(args):
+    """ O: Arranging review data
+    1. Load data from directory 
+    2. Construct sparse matrix of labels
+    """
+    data_dir = os.path.join('./data', args.data)
+    
+    #following line is commented out because otherwise there is a local var df referenced before assignment error
+    if args.data == 'ml-1m':
+        df, item_mapping = MovieLens1M(data_dir).load()
+    # elif args.data == 'ml-100k':
+    #     df, item_mapping = MovieLens100K(data_dir).load()
+    else:
+        df, item_mapping = LibraryThing(data_dir, args.ndatapoints).load()
+
+   
+    user_size = len(df['user'].unique())
+    item_size = len(df['item'].unique())
+
+    """construct matrix_label"""
+    #if the rating is >3 the user would watch it
+    #matrix label is the rating matrix: a 6040(#users)X3706(#items) matrix needed for matrix factorisation
+
+    df_rate = df[["user", "item", "rate"]]
+    # O: Keep only movies with ratings larger than 3 
+    df_rate = df_rate[df_rate['rate'] > 3]
+    df_rate = df_rate.reset_index().drop(['index'], axis=1)
+    
+    # O: set al rates to 1 
+    df_rate['rate'] = 1
+    # O: (user, item), rate
+    matrix_label = scipy.sparse.csr_matrix(
+        (np.array(df_rate['rate']), (np.array(df_rate['user']), np.array(df_rate['item']))))
+   
+    return df, item_mapping, matrix_label, user_size, item_size
+
+
+def obtain_group_index(df, args):
+    """
+    """
+    
+    user_size = len(df['user'].unique())
+    
+    #matrices of where in the df there is an index for each case
+    index_F, index_M = gender_index(df)
+    #list of size 2 that has the #women and #men
+    index_gender = [torch.tensor(index_F).long(), torch.tensor(index_M).long()]
+    #an array of arrays for all 7 age groups and an array that has 1 if the user belongs to a specific age group
+    index_age, age_mask = age_index(df, user_size, args.data)
+    index_pop, pop_mask = pop_index(df)
+
+    index_genre = []
+    if args.data == 'ml-100k':
+        index_genre, genre_mask = genre_ml100k_index(df)
+    elif args.data == 'ml-1m':
+        index_genre, genre_mask = genre_ml1m_index(df)
+
+    return index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask
+
+def obtain_group_index_tl(df, args):
+    user_size = len(df['user'].unique())
+    #matrices of where in the df there is an index for each group
+    index_engagement, engagement_mask = engagement_index(df)
+    index_helpful, helpful_mask = age_index(df, user_size, args.data)
+
+    return index_engagement, index_helpful, engagement_mask, helpful_mask
+
 
 
 def parser_args():
-    parser = ArgumentParser(description="JMEF")
-    parser.add_argument('--data', type=str, default='ml-1m', choices=['ml-1m', 'ml-100k', 'lt'],
-                        help="File path for data")
-    parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--seed', type=int, default=0, help="Seed (For reproducability)")
-    parser.add_argument('--model', type=str, default='Pop')
-    parser.add_argument('--gamma', type=float, default=0.8, help="patience factor")
-    parser.add_argument('--temp', type=float, default=0.1, help="temperature. how soft the ranks to be")
-    parser.add_argument('--s_ep', type=int, default=100)
-    parser.add_argument('--r_ep', type=int, default=1)
-    parser.add_argument('--norm', type=str, default='N')
-    parser.add_argument('--coll', type=str, default='Y')
-    parser.add_argument('--age', type=str, default='N')
-    parser.add_argument('--ndatapoints', type=int, default= 5000)
-    parser.add_argument('--conduct', type=str, default='sh')
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data", type=str, default="lt")
     return parser.parse_args()
 
 
-def normalize_matrix_by_row(matrix):
-    """ Normalize matrix per row
-    Input: 
-        matrix: matrix to be normalized
-    Output:
-        normalized_matrix: input matrix normalized by row
-    """
-    sum_of_rows = matrix.sum(axis=1)
-    normalized_matrix = matrix / sum_of_rows[:, np.newaxis]
-    return normalized_matrix
-
-def calc_num_rel(matrix_label):
-    """ Calculate the 
-    Input:
-        matrix_label: matrix of labels
-    Output:
-        num_rel: 
-    """
-    num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")#Y sum in 1st dim of rating matrix 6040x1
-    num_rel[num_rel == 0.0] = 1.0
-    
-    return num_rel
-
-
-def calc_E_target(args, matrix_label, num_rel):
-    """ Calculate E_target with user browsing model (USM)
-    """
-    usm_exposure = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float")) #6040x1
-    E_target = usm_exposure / num_rel * matrix_label #[6040,3706]
-    return E_target
-
-def build_E_collect(E_target):
-    """ Calculate E_collect
-    """
-    if args.coll == 'Y':
-        E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean() #[6040,3706]
-    else:
-        E_collect = np.zeros((E_target.shape[0], E_target.shape[1]))
-    return E_collect
-
-def calc_E_system(args, E_target, top_item_id, weight = np.nan):
-    """ Calculate E_system
-    """
-
-    E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
-    
-    if args.conduct == 'st':
-        exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
-        for i in range(len(top_item_id)):
-            top_item_id = [list(map(int, i)) for i in top_item_id]
-            E_system[i][top_item_id[i]] = exp_vector
-        
-        return  torch.from_numpy(E_system)
-    
-    if args.conduct == 'sh':
-        sample_times = args.s_ep
-        for sample_epoch in trange(sample_times, ascii=False): # sample 100 rankings for each user 
-            E_system_tmp = np.zeros((E_target.shape[0], E_target.shape[1]))
-            exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")  # pre-compute the exposure_vector (100x1)
-            for i in range(len(top_item_id)):
-                tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i]) #selects one permutation of 100 movies from /
-                #top 100 movies from a user's rank with probability weights[user] (100x1)
-                
-                tmp_selected = np.array([int(j) for j in tmp_selected])
-                E_system_tmp[i][tmp_selected] = exp_vector
-            E_system += E_system_tmp
-        E_system /= sample_times
-
-        return torch.from_numpy(E_system)
-
-def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, rand_tau=1):
-    # construct E_target
-    num_rel = calc_num_rel(matrix_label)
-    
-    # user browsing model  
-    E_target = calc_E_target(args, matrix_label, num_rel)
-
-    # construct E_collect
-    E_collect = build_E_collect(E_target)
-
-    # To pytorch tensors 
-    E_target = torch.from_numpy(E_target)
-    E_collect = torch.from_numpy(E_collect)
-    print('numrel', num_rel.shape)
-    print('TARGET', E_target.shape)
-    print(len(save_df['item']))
-    top_item_id = np.array(list(save_df["item"])).reshape(-1, 100) #[6040, 100]
-    top_score = np.array(list(save_df["score"])).reshape(-1, 100)
-    print('top_item_id', top_item_id.shape)
-    print('top score ', top_score.shape)
-    if args.norm == 'Y':
-        top_score = normalize_matrix_by_row(top_score)
-    weight = softmax(top_score / rand_tau, axis=1) #Y/b in quation of p(d|u)
-    
-    indicator = torch.ones((E_target.shape[0], E_target.shape[1]))
-
-    E_system = calc_E_system(args, E_target, top_item_id, weight=weight)
-
-    IIF_all = II_F(E_system, E_target, E_collect, indicator)
-    GIF_all = GI_F_mask(E_system, E_target, E_collect, user_label, indicator)
-    AIF_all = AI_F_mask(E_system, E_target, E_collect, indicator)
-    IGF_all = IG_F_mask(E_system, E_target, E_collect, item_label, indicator)
-    GGF_all = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[:3]
-    AGF_all = AG_F_mask(E_system, E_target, E_collect, item_label, indicator)
-    print('Metric evaluation complete')
-    return IIF_all, GIF_all, IGF_all, GGF_all, AIF_all, AGF_all  # , IIF_sp, IGF_sp, GIF_sp, GGF_sp, AIF_sp, AGF_sp
-    
-
-def eval_function_static(save_df, user_label, item_label, matrix_label, args):
-    # construct E_target
-    num_rel = calc_num_rel(matrix_label)
-
-    # Calculate E_target with user browsing model
-    E_target = calc_E_target(args, matrix_label, num_rel)
-
-    # construct E_collect (collectiion of exposures?), E_collect = random exposure
-    E_collect = build_E_collect(E_target)
-
-    top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
-    
-    # put the exposure value into the selected positions
-    E_system = calc_E_system(args, E_target, top_item_id)
-
-    E_target = torch.from_numpy(E_target)
-    E_collect = torch.from_numpy(E_collect)
-    indicator = torch.ones((E_target.shape[0], E_target.shape[1]))
-    IIF = II_F(E_system, E_target, E_collect, indicator)
-    GIF = GI_F_mask(E_system, E_target, E_collect, user_label, indicator)
-    AIF = AI_F_mask(E_system, E_target, E_collect, indicator)
-    IGF = IG_F_mask(E_system, E_target, E_collect, item_label, indicator)
-    GGF = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[:3]
-    AGF = AG_F_mask(E_system, E_target, E_collect, item_label, indicator)
-
-    return IIF, GIF, IGF, GGF, AIF, AGF
-
-
-def compute_stochas(args):
-    save_df = load_deterministic_ranker(args)
-    if args.model == 'LDA':
-        save_df["score"] = save_df["score"] * 1000
-    elif args.model == 'Pop':
-        save_df["score"] = save_df["score"] * 10
-    elif args.model in ["PLSA", "RM1", "RSV", "CHI2", "HT", "KLD", "SVD", "UIR", "RM2", "LMWU", "LMWI", "NNU", "NNI"]:
-        args.norm = 'Y'
-    
-    # List of beta_values
-    rand_tau_list = [8, 4, 2, 1, 0.5, 0.25, 0.125] # different values for beta
-    
-    save_IIF, save_IGF, save_GIF, save_GGF, save_AIF, save_AGF = [], [], [], [], [], []
-    save_IID, save_IGD, save_GID, save_GGD, save_AID, save_AGD = [], [], [], [], [], []
-    save_IIR, save_IGR, save_GIR, save_GGR, save_AIR, save_AGR = [], [], [], [], [], []
-
-    len_tau = len(rand_tau_list)
-
-    """evaluate on whole"""
-    for epoch in range(args.r_ep):
-        print("epoch:", epoch)
-        for i in range(len_tau):
-            print("tau={}".format(rand_tau_list[i]))
-
-            # IIF_all, GIF_all, IGF_all, GGF_all, AIF_all, AGF_all, IIF_sp, IGF_sp, GIF_sp, GGF_sp, AIF_sp, AGF_sp \
-            IIF_all, GIF_all, IGF_all, GGF_all, AIF_all, AGF_all \
-                = eval_function_stochas(save_df, user_label, item_label, matrix_label, args, rand_tau=rand_tau_list[i])
-
-            save_IIF.append(IIF_all[0].item())
-            save_GIF.append(GIF_all[0].item())
-            save_IGF.append(IGF_all[0].item())
-            save_GGF.append(GGF_all[0].item())
-            save_AIF.append(AIF_all[0].item())
-            save_AGF.append(AGF_all[0].item())
- 
-            save_IID.append(IIF_all[1].item())
-            save_GID.append(GIF_all[1].item())
-            save_IGD.append(IGF_all[1].item())
-            save_GGD.append(GGF_all[1].item())
-            save_AID.append(AIF_all[1].item())
-            save_AGD.append(AGF_all[1].item())
-
-            save_IIR.append(IIF_all[2].item())
-            save_GIR.append(GIF_all[2].item())
-            save_IGR.append(IGF_all[2].item())
-            save_GGR.append(GGF_all[2].item())
-            save_AIR.append(AIF_all[2].item())
-            save_AGR.append(AGF_all[2].item())
-
-    dict_all = {"IIF": save_IIF, "IGF": save_IGF, "GIF": save_GIF, "GGF": save_GGF, "AIF": save_AIF, "AGF": save_AGF,
-                "IID": save_IID, "IGD": save_IGD, "GID": save_GID, "GGD": save_GGD, "AID": save_AID, "AGD": save_AGD,
-                "IIR": save_IIR, "IGR": save_IGR, "GIR": save_GIR, "GGR": save_GGR, "AIR": save_AIR, "AGR": save_AGR}
-
-    # Save files in json format
-    for key in dict_all:
-        if args.age == 'Y':
-            with open("./save_exp/{}/{}_all_{}_Y.json".format(args.data, key, args.model), "w") as fp:
-                json.dump(dict_all[key], fp)
-        else:
-            with open(
-                    "./save_exp/{}/{}_all_{}.json".format(args.data, key, args.model), "w") as fp:
-                json.dump(dict_all[key], fp)
-    
-
-    return dict_all
-
-
-def compute_static(args):
-    # Load deterministic ranker
-    save_df = load_deterministic_ranker(args)
-
-    save_IIF, save_IGF, save_GIF, save_GGF, save_AIF, save_AGF = [], [], [], [], [], []
-    save_IID, save_IGD, save_GID, save_GGD, save_AID, save_AGD = [], [], [], [], [], []
-    save_IIR, save_IGR, save_GIR, save_GGR, save_AIR, save_AGR = [], [], [], [], [], []
-
-    IIF_all, GIF_all, IGF_all, GGF_all, AIF_all, AGF_all \
-        = eval_function_static(save_df, user_label, item_label, matrix_label, args)
-
-    save_IIF.append(IIF_all[0].item())
-    save_GIF.append(GIF_all[0].item())
-    save_IGF.append(IGF_all[0].item())
-    save_GGF.append(GGF_all[0].item())
-    save_AIF.append(AIF_all[0].item())
-    save_AGF.append(AGF_all[0].item())
-
-    save_IID.append(IIF_all[1].item())
-    save_GID.append(GIF_all[1].item())
-    save_IGD.append(IGF_all[1].item())
-    save_GGD.append(GGF_all[1].item())
-    save_AID.append(AIF_all[1].item())
-    save_AGD.append(AGF_all[1].item())
-
-    save_IIR.append(IIF_all[2].item())
-    save_GIR.append(GIF_all[2].item())
-    save_IGR.append(IGF_all[2].item())
-    save_GGR.append(GGF_all[2].item())
-    save_AIR.append(AIF_all[2].item())
-    save_AGR.append(AGF_all[2].item())
-
-    print("save_IIF:", save_IIF)
-    print("save_IID:", save_IID)
-    print("save_IIR:", save_IIR)
-
-    dict = {"IIF": save_IIF, "IGF": save_IGF, "GIF": save_GIF, "GGF": save_GGF, "AIF": save_AIF, "AGF": save_AGF,
-            "IID": save_IID, "IGD": save_IGD, "GID": save_GID, "GGD": save_GGD, "AID": save_AID, "AGD": save_AGD,
-            "IIR": save_IIR, "IGR": save_IGR, "GIR": save_GIR, "GGR": save_GGR, "AIR": save_AIR, "AGR": save_AGR}
-
-    for key in dict:
-        if args.age == 'Y':
-            with open("./save_exp/{}/{}_all_{}_static_Y.json".format(args.data, key, args.model), "w") as fp:
-                json.dump(dict[key], fp)
-        else:
-            with open("./save_exp/{}/{}_all_{}_static.json".format(args.data, key, args.model), "w") as fp:
-                json.dump(dict[key], fp)
-
-def load_deterministic_ranker(args):
-    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
-        save_df = pd.read_csv('./saved_model/ml/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
-                          compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
-    elif args.data == 'lt':
-        save_df = pd.read_csv('./saved_model/runs-libraryThing/run-{}-libraryThing-fold1.txt.gz'.format(args.model),
-                          compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
-    
-
-    save_df = save_df.rename(columns={0: "user", 2: "item", 4: "score"})
-    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
-        save_df.user = save_df.user - 1
-
-    save_df['item'] = save_df['item'].map(item_mapping)
-    save_df = save_df.dropna().reset_index(drop = True)
-    save_df.drop(save_df.tail(len(save_df)%100).index, inplace = True)
-    
-    
-    save_df = save_df.sort_values(["user", "score"], ascending=[True, False])
-    save_df = save_df.reset_index().drop(['index'], axis=1)
-    return save_df
-
-
-
-def compute_exp_matrix(args):
-    save_df = load_deterministic_ranker(args)
-
-    if args.model == 'LDA':
-        save_df["score"] = save_df["score"] * 1000
-    save_IIF, save_IGF, save_GIF, save_GGF, save_AIF, save_AGF = [], [], [], [], [], []
-    save_IID, save_IGD, save_GID, save_GGD, save_AID, save_AGD = [], [], [], [], [], []
-    save_IIR, save_IGR, save_GIR, save_GGR, save_AIR, save_AGR = [], [], [], [], [], []
-
-    # rand_tau_list = [2, 4, 8, 16]
-    rand_tau_list = [0.125, 8]
-    len_tau = len(rand_tau_list)
-
-    """evaluate on whole"""
-    for i in range(len_tau):
-        rand_tau = rand_tau_list[i]
-        print("tau={}".format(rand_tau))
-        # construct E_target
-        num_rel = calc_num_rel(matrix_label)
-
-        # Calculate E_target with user browsing model
-        E_target = calc_E_target(args, matrix_label, num_rel)
-
-        # construct E_collect
-        E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean()
-
-
-        top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
-        top_score = np.array(list(save_df["score"])).reshape(-1, 100)
-        # This was commented out at some point
-        top_score = normalize_matrix_by_row(top_score)
-        weight = softmax(top_score / rand_tau, axis=1)
-
-        # put the exposure value into the selected positions
-        sample_times = 100
-        E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
-        for _ in trange(sample_times, ascii=False):
-            E_system_tmp = np.zeros((E_target.shape[0], E_target.shape[1]))
-            exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
-            for i in range(len(top_item_id)):
-                tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i])
-                tmp_selected = np.array([int(j) for j in tmp_selected])
-                E_system_tmp[i][tmp_selected] = exp_vector
-            E_system += E_system_tmp
-        E_system /= sample_times
-
-        E_system = torch.from_numpy(E_system)
-        E_target = torch.from_numpy(E_target)
-        E_collect = torch.from_numpy(E_collect)
-        indicator = torch.ones((E_target.shape[0], E_target.shape[1]))
-        GG_target_stochas = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[3]
-        GG_system_stochas = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[4]
-
-        with open("./save_exp/{}/GG_MT_{}_{}.json".format(args.data, rand_tau, args.model), "w") as fp:
-            json.dump(np.array(GG_target_stochas).tolist(), fp)
-        with open("./save_exp/{}/GG_MS_{}_{}.json".format(args.data, rand_tau, args.model), "w") as fp:
-            json.dump(np.array(GG_system_stochas).tolist(), fp)
-
-    # construct E_target
-    num_rel = calc_num_rel(matrix_label)
-
-    exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float"))
-    E_target = exposure_rel / num_rel * matrix_label
-
-    # construct E_collect
-    E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean()
-
-    # construct E_system
-    user_size = E_target.shape[0]
-
-    top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
-    top_score = np.array(list(save_df["score"])).reshape(-1, 100)
-
-    # put the exposure value into the selected positions
-    E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
-    exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
-    for i in range(len(top_item_id)):
-        top_item_id = [list(map(int, i)) for i in top_item_id]
-        E_system[i][top_item_id[i]] = exp_vector
-
-    E_system = torch.from_numpy(E_system)
-    E_target = torch.from_numpy(E_target)
-    E_collect = torch.from_numpy(E_collect)
-    indicator = torch.ones((E_target.shape[0], E_target.shape[1]))
-    GG_target_static = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[3]
-    GG_system_static = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[4]
-    GG_collect = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[5]
-
-    print("GG_target_static:", GG_target_static)
-    print("GG_system_static:", GG_system_static)
-    print("GG_collect:", GG_collect)
-
-    with open("./save_exp/{}/GG_MT_{}_static.json".format(args.data, args.model), "w") as fp:
-        json.dump(np.array(GG_target_static).tolist(), fp)
-    with open("./save_exp/{}/GG_MS_{}_static.json".format(args.data, args.model), "w") as fp:
-        json.dump(np.array(GG_system_static).tolist(), fp)
-    with open("./save_exp/{}/GG_collect_{}_static.json".format(args.data, args.model), "w") as fp:
-        json.dump(np.array(GG_collect).tolist(), fp)
-
-
 if __name__ == '__main__':
-    print('start timer')
-    start = time.time()
-
     args = parser_args()
-    args.device = torch.device('cuda:' + str(args.gpu_id) if torch.cuda.is_available() else 'cpu')
-    print("device:", args.device)
-
-    """read data and assign attribute index"""
     df, item_mapping, matrix_label, user_size, item_size = preprocessing(args)
-    
-    # Obtain group indices for Movielens dataset
-    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
-        index_F, index_M, index_gender, index_age, index_genre, index_pop, age_matrix, pop_mask, genre_matrix \
-            = obtain_group_index(df, args)
-        
-        # Set user group lable:
-        if args.age == 'Y':
-            user_label = age_matrix #[7,6040]
-        else:
-            # Build matrix with gender information
-            gender_matrix = torch.zeros(2, len(index_F) + len(index_M)) #[2, #females + #males] , 1st row for F 2nd for M
-            for ind in index_F:
-                gender_matrix[0][ind] = 1
-            for ind in index_M:
-                gender_matrix[1][ind] = 1
-    
-            user_label = gender_matrix  # .to(args.device) [2,6040]
-
-        # Set item group lable
-        item_label = genre_matrix  # .to(args.device) [18, 3706]
-
-    # Obtain group indices for LibraryThing dataset
-    elif (args.data == 'lt'):
-        index_engagement, index_helpful, engagement_matrix, helpful_matrix = obtain_group_index_tl(df, args) 
-        user_label = helpful_matrix 
-        item_label = engagement_matrix
-
-    matrix_label = np.array(matrix_label.todense()) #rating matrix for matrix factorization, user-item relevance matrix Y [6040, 3706]
-    print('mat lab', matrix_label.shape)
-    # Print set-up statics
-    print('-------- Experiment Configuration --------')
-    print("norm:", args.norm)
-    print("coll:", args.coll)
-    print("model:", args.model)
-    print('conduct:', args.conduct)
-    print('-------------------------------')
-
-    # Run computation according to conduct nide
-    if args.conduct == 'sh':
-        compute_stochas(args)
-    elif args.conduct == 'st':
-        compute_static(args)
-
-    # Compute Expectation matrix
-    #compute_exp_matrix(args)
-
-    stop = time.time()
-    print('Time elapsed: ', np.round(stop-start, 4), ' s')
-    
-    
-    # Write experiment GPU time to file
-    with open("Experiment_times.txt", "w") as f:
-        f.write(args.model + " " + args.age + " " + args.conduct + " " + str(np.round(stop-start, 4)) + " s  \n")
-    
-    print('---------------------------------------------')
-    print("Experiment completed successfully")
-    print('---------------------------------------------')
+    if args.data == 'lt':
+        index_engagement, index_helpful, engagement_mask, helpful_mask = obtain_group_index_tl(df, args)
+    else:
+        index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask = obtain_group_index(df, args)
+    # print("matrix_label:", matrix_label.todense().shape)
+    print(df.head())
