@@ -286,7 +286,7 @@ def compute_static(args):
 
 def load_deterministic_ranker(args):
     if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
-        save_df = pd.read_csv('./saved_model/ml/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
+        save_df = pd.read_csv('./saved_model/runs-ml-1M/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
                           compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
     elif args.data == 'lt':
         save_df = pd.read_csv('./saved_model/runs-libraryThing/run-{}-libraryThing-fold1.txt.gz'.format(args.model),
