@@ -56,7 +56,7 @@ class MovieLens100k(DatasetLoader):
 class LibraryThing(DatasetLoader):
     def __init__(self, data_dir):
         self.path = os.path.join(data_dir, 'reviews.txt')
-        self.ndatapoints = 20000
+        self.ndatapoints = 5000
     
     def load(self):
         df = pd.DataFrame(columns = ['item', 'flags', 'rate', 'nhelpful',  'user', 'commentlength'], 
@@ -221,17 +221,17 @@ def age_mapping_ml1m(age):
         print('Error in age data, age set = ', age)
 
 def help_mapping(nhelpful):
-    if nhelpful == 0 :
+    if 0 <= nhelpful < 1 :
         return 0
-    elif nhelpful == 1:
+    elif 1 <= nhelpful < 2:
         return 1
-    elif nhelpful == 2:
+    elif 2 <= nhelpful < 3:
         return 2
-    elif nhelpful == 3:
+    elif 3 <= nhelpful < 4:
         return 3
-    elif nhelpful == 4:
+    elif 4 <= nhelpful < 5:
         return 4
-    elif nhelpful == 5:
+    elif 5 <= nhelpful < 6:
         return 5
     elif nhelpful >= 6:
         return 6
@@ -243,8 +243,9 @@ def age_index(df, user_size, data):
     """
     if data in ('ml-100k', 'ml-1m'):
         dic = df.groupby('user')['age'].apply(list).to_dict()
+
     else:
-        dic = df.groupby('user')['nhelpful'].apply(list).to_dict()
+        dic = df.groupby('user')['nhelpful'].mean().to_dict()
 
     for id, attribute in dic.items():
         if data == 'ml-100k':
@@ -342,11 +343,10 @@ def genre_ml100k_index(df):
 
 def engagement_index(df):
     df_length = df[['item', 'commentlength']]
-    df_length = df_length.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True)
+    df_length = df_length.groupby('item')['commentlength'].mean().reset_index()
     ls = df_length['commentlength'].tolist()
 
     for i in range(len(ls)):
-        # for j in range(len(ls[i])):
         if ls[i] <= 50:
             ls[i] = 0
         elif 50 < ls[i] <= 100:
@@ -384,7 +384,7 @@ def engagement_index(df):
         elif ls[i] > 850:
             ls[i] = 17
 
-    genre_mask = torch.zeros(18, len(df_length)) # [18, 3706]
+    genre_mask = torch.zeros(18, len(df_length)) 
     for i in range(len(df_length)):
         for k in range(0, 18):
             if k in ls:
@@ -400,7 +400,6 @@ def engagement_index(df):
 def genre_ml1m_index(df):
     df_genre = df[['item', 'genre']]
     df_genre = df_genre.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True)
-    # ls = df_genre['commentlength'].tolist()
     ls = df_genre['genre'].tolist()
     for i in range(len(ls)):
         ls[i] = ls[i].split("|")
@@ -468,8 +467,8 @@ def preprocessing(args):
     #following line is commented out because otherwise there is a local var df referenced before assignment error
     if args.data == 'ml-1m':
         df, item_mapping = MovieLens1M(data_dir).load()
-    elif args.data == 'lt':
-        df, item_mapping = LibraryThing(data_dir).load()
+    # elif args.data == 'ml-100k':
+    #     df, item_mapping = MovieLens100K(data_dir).load()
     else:
         df, item_mapping = LibraryThing(data_dir).load()
 
@@ -540,13 +539,15 @@ def obtain_group_index_tl(df, args):
 
 def parser_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, default="lt")
+    parser.add_argument("--data", type=str, default="ml-1m")
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     args = parser_args()
     df, item_mapping, matrix_label, user_size, item_size = preprocessing(args)
-    index_engagement, index_helpful, engagement_mask, helpful_mask = obtain_group_index_tl(df, args)
-    # print("matrix_label:", matrix_label.todense().shape)
-    # print(df)
+    if args.data == 'lt':
+        index_engagement, index_helpful, engagement_mask, helpful_mask = obtain_group_index_tl(df, args)
+    else:
+        index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask = obtain_group_index(df, args)
+    print("matrix_label:", matrix_label.todense().shape)
