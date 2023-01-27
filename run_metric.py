@@ -81,7 +81,7 @@ def calc_E_system(args, E_target, top_item_id, weight = np.nan):
     E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
     
     if args.conduct == 'st':
-        exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
+        exp_vector = np.power(args.gamma, np.arange(top_items) + 1).astype("float")
         for i in range(len(top_item_id)):
             top_item_id = [list(map(int, i)) for i in top_item_id]
             E_system[i][top_item_id[i]] = exp_vector
@@ -92,9 +92,9 @@ def calc_E_system(args, E_target, top_item_id, weight = np.nan):
         sample_times = args.s_ep
         for sample_epoch in trange(sample_times, ascii=False): # sample 100 rankings for each user 
             E_system_tmp = np.zeros((E_target.shape[0], E_target.shape[1]))
-            exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")  # pre-compute the exposure_vector (100x1)
+            exp_vector = np.power(args.gamma, np.arange(top_items) + 1).astype("float")  # pre-compute the exposure_vector (100x1)
             for i in range(len(top_item_id)):
-                tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i]) #selects one permutation of 100 movies from /
+                tmp_selected = np.random.choice(top_item_id[i], top_items, replace=False, p=weight[i]) #selects one permutation of 100 movies from /
                 #top 100 movies from a user's rank with probability weights[user] (100x1)
                 
                 tmp_selected = np.array([int(j) for j in tmp_selected])
@@ -119,8 +119,8 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
     E_collect = torch.from_numpy(E_collect)
 
     print(len(save_df['item']))
-    top_item_id = np.array(list(save_df["item"])).reshape(-1, 100) #[6040, 100]
-    top_score = np.array(list(save_df["score"])).reshape(-1, 100)
+    top_item_id = np.array(list(save_df["item"])).reshape(-1, top_items) #[6040, 100]
+    top_score = np.array(list(save_df["score"])).reshape(-1, top_items)
     print('top_item_id', top_item_id.shape)
     print('top score ', top_score.shape)
     if args.norm == 'Y':
@@ -151,7 +151,7 @@ def eval_function_static(save_df, user_label, item_label, matrix_label, args):
     # construct E_collect (collectiion of exposures?), E_collect = random exposure
     E_collect = build_E_collect(E_target)
 
-    top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
+    top_item_id = np.array(list(save_df["item"])).reshape(-1, top_items)
     
     # put the exposure value into the selected positions
     E_system = calc_E_system(args, E_target, top_item_id)
@@ -447,6 +447,12 @@ if __name__ == '__main__':
         index_engagement, index_helpful, engagement_matrix, helpful_matrix = obtain_group_index_tl(df, args) 
         user_label = helpful_matrix 
         item_label = engagement_matrix
+
+    # Initialize no. items per user:
+    if args.model == 'Bert4Rec':
+        top_items = 101
+    else:
+        top_items = 100
 
     matrix_label = np.array(matrix_label.todense()) #rating matrix for matrix factorization, user-item relevance matrix Y [6040, 3706]
     print('mat lab', matrix_label.shape)

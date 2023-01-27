@@ -111,7 +111,7 @@ class MovieLens1M(DatasetLoader):
                               sep='::',
                               engine='python',
                               names=['user', 'gender', 'age', 'occupation', 'Zip-code'],
-                              usecols=['user', 'gender', 'age'])
+                              usecols=['user', 'gender', 'occupation', 'age'])
         # O: Load movie item information
         df_item = pd.read_csv(self.fpath_item,
                               sep='::',
