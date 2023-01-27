@@ -139,6 +139,7 @@ def figure_3(models, model_name = ['BPRMF', 'LDA', 'PureSVD', 'SLIM', 'WRMF'], c
     plt.savefig('Figure_3.png', bbox_inches = 'tight')
 
 # Load unnormalized data
+"""
 BPRMF = load_data('BPRMF', 1, group)
 LDA = load_data('LDA', 2, group)
 PureSVD = load_data('PureSVD', 3, group)
@@ -157,6 +158,7 @@ PureSVD = load_data('PureSVD', 3, group, apply_min_max=True, max_ = global_max, 
 SLIM = load_data('SLIM', 4, group, apply_min_max=True, max_ = global_max, min_ = global_min)
 WRMF = load_data('WRMF', 5, group, apply_min_max=True, max_ = global_max, min_ = global_min)
 all_models_norm = [BPRMF, LDA, PureSVD, SLIM, WRMF]
+"""
 '''
 BPRMF_mm = load_data('BPRMF', 1, group, apply_min_max= True)
 #figure_2(BPRMF_mm)
@@ -165,7 +167,7 @@ BPRMF_mm = load_data('BPRMF', 1, 'lt', apply_min_max= True)
 figure_2(BPRMF_mm)
 figure_3([BPRMF_mm])
 '''
-#BPRMF_new = load_data('BPRMF', 1, 'lt', apply_min_max= True)
-#figure_2(BPRMF_new)
-#figure_3([BPRMF_new])
-figure_3(all_models_norm)
+BPRMF_new = load_data('BPRMF', 1, 'Gender', apply_min_max= True)
+figure_2(BPRMF_new)
+figure_3([BPRMF_new])
+#figure_3(all_models_norm)

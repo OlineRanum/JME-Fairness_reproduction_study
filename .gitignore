@@ -33,3 +33,5 @@ saved_model/
 save_exp/
 __pycache__/
 *.pyc
+
+Bert4Rec
