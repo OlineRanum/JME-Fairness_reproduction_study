@@ -470,7 +470,7 @@ def preprocessing(args):
     # elif args.data == 'ml-100k':
     #     df, item_mapping = MovieLens100K(data_dir).load()
     else:
-        df, item_mapping = LibraryThing(data_dir).load()
+        df, item_mapping = LibraryThing(data_dir, args.ndatapoints).load()
 
    
     user_size = len(df['user'].unique())
