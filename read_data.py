@@ -56,7 +56,7 @@ class MovieLens100k(DatasetLoader):
 class LibraryThing(DatasetLoader):
     def __init__(self, data_dir):
         self.path = os.path.join(data_dir, 'reviews.txt')
-        self.ndatapoints = 100
+        self.ndatapoints = 20000
     
     def load(self):
         df = pd.DataFrame(columns = ['item', 'flags', 'rate', 'nhelpful',  'user', 'commentlength'], 
@@ -93,7 +93,6 @@ class LibraryThing(DatasetLoader):
         return df, item_mapping
 
 
-        return df, item_mapping
 
 
 class MovieLens1M(DatasetLoader):
@@ -252,8 +251,10 @@ def age_index(df, user_size, data):
             dic[id] = age_mapping_ml100k(attribute[0])
         elif data == 'ml-1m':
             dic[id] = age_mapping_ml1m(attribute[0])
-        else:
+        elif data == 'lt':
             dic[id] = help_mapping(attribute[0])
+        else:
+            print('Data not avilable')
 
     index_age = [[], [], [], [], [], [], []]
     
@@ -475,7 +476,8 @@ def preprocessing(args):
    
     user_size = len(df['user'].unique())
     item_size = len(df['item'].unique())
-    
+    print('data_size: ', len(df))
+
     print("user_size:", user_size)
     print("item_size:", item_size)
 
@@ -495,7 +497,7 @@ def preprocessing(args):
     # O: (user, item), rate
     matrix_label = scipy.sparse.csr_matrix(
         (np.array(df_rate['rate']), (np.array(df_rate['user']), np.array(df_rate['item']))))
-
+    print('Matrix Label', matrix_label.shape)
 
     return df, item_mapping, matrix_label, user_size, item_size
 
@@ -531,14 +533,6 @@ def obtain_group_index_tl(df, args):
     #matrices of where in the df there is an index for each group
     index_engagement, engagement_mask = engagement_index(df)
     index_helpful, helpful_mask = age_index(df, user_size, args.data)
-
-    return index_engagement, index_helpful, engagement_mask, helpful_mask
-
-def obtain_group_index_tl(df, args):
-    user_size = len(df['user'].unique())
-    #matrices of where in the df there is an index for each group
-    index_engagement, engagement_mask = engagement_index(df)
-    index_helpful, helpful_mask = helfulness_index(df)
 
     return index_engagement, index_helpful, engagement_mask, helpful_mask
 

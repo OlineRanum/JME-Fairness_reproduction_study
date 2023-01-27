@@ -1,4 +1,4 @@
-name: dl2022
+name: fact
 channels:
   - pytorch
   - nvidia

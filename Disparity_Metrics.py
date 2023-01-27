@@ -1,50 +1,82 @@
 import torch
-
+import time
 
 def II_F(E_system, E_target, E_collect, batch_indicator):
+    start_temp = time.time()
     # the batch_indicator is a matrix, where 0: hold-out; 1: should consider
     E_system = E_system - E_collect
     E_target = E_target - E_collect
     metric = (E_system - E_target).pow(2).sum() / batch_indicator.sum()
     dis = (E_system).pow(2).sum() / batch_indicator.sum()
     rel = 2 * (E_system * E_target).sum() / batch_indicator.sum()
-
+    stop_temp = time.time()
+    print('Time IIF: ', stop_temp - start_temp)
     return [metric, dis, rel]
 
 
 def GI_F_mask(E_system, E_target, E_collect, user_label, batch_indicator):
-    E_system = E_system - E_collect
-    E_target = E_target - E_collect
+    start_temp = time.time()
+    E_system = (E_system - E_collect).double()
+    E_target = (E_target - E_collect).double()
     num_userG = user_label.shape[0]
     num_item = E_system.shape[1]
+    user_label = user_label.double()
+    batch_indicator = batch_indicator.double()
     metric, dis, rel = 0, 0, 0
 
+    print('E sys ', E_system.shape)
+    print('User lab ', user_label.shape)
+    print('User lab view ', user_label.view(-1,1))
+    print('User lab view', user_label.view(-1,1).shape)
+    print('user lab 0 ', user_label[0].shape)
+    print('batch indicator ', batch_indicator.shape)
+    print('num user G ', num_userG)
+    
+    diff = (torch.mm(user_label, E_system) - torch.mm(user_label, E_target)).sum(0, keepdim = True) # -E_target*user_label)#.sum(0, keepdim = True)
+    dis  = torch.mm(user_label, E_system).sum(0, keepdim=True)
+    rel  = dis*torch.mm(user_label, E_target).sum(0, keepdim = True)
+    num = torch.mm(user_label, batch_indicator).sum(0, keepdim = True)
+    num[num == 0] = 1
+    print('num', num.shape)
+    metric = (diff/num).pow(2).sum()
+    print('not dead 1')
+    dis = dis/num.pow(2).sum()
+    print('not dead 2')
+    rel = (rel/num/num).sum()
+    print('not dead 3')
     for i in range(num_userG):
         diff = (E_system * user_label[i].view(-1, 1) - E_target * user_label[i].view(-1, 1)).sum(0, keepdim=True)
+        
         dis_tmp = (E_system * user_label[i].view(-1, 1)).sum(0, keepdim=True)
         rel_tmp = (E_system * user_label[i].view(-1, 1)).sum(0, keepdim=True) * (
                 E_target * user_label[i].view(-1, 1)).sum(
             0, keepdim=True)
         num = (batch_indicator * user_label[i].view(-1, 1)).sum(0, keepdim=True)
+        print(num.shape)
         num[num == 0] = 1
 
         metric += (diff / num).pow(2).sum()
         dis += (dis_tmp / num).pow(2).sum()
         rel += (rel_tmp / num / num).sum()
+        print('not dead 4')
 
     metric = metric / num_userG / num_item
     dis = dis / num_userG / num_item
     rel = 2 * rel / num_userG / num_item
-
+    stop_temp = time.time()
+    print('Time GIF: ', stop_temp - start_temp)
     return [metric, dis, rel]
 
 
 def IG_F_mask(E_system, E_target, E_collect, item_label, batch_indicator):
+    start_temp = time.time()
     E_system = E_system - E_collect
     E_target = E_target - E_collect
     num_user = E_system.shape[0]
     num_itemG = item_label.shape[0]
     metric, dis, rel = 0, 0, 0
+
+    
 
     for i in range(num_itemG):
         diff = (E_system * item_label[i] - E_target * item_label[i]).sum(1, keepdim=True)
@@ -60,11 +92,13 @@ def IG_F_mask(E_system, E_target, E_collect, item_label, batch_indicator):
     metric = metric / num_user / num_itemG
     dis = dis / num_user / num_itemG
     rel = 2 * rel / num_user / num_itemG
-
+    stop_temp = time.time()
+    print('Time IGF: ', stop_temp - start_temp)
     return [metric, dis, rel]
 
 
 def GG_F_mask(E_system_raw, E_target_raw, E_collect, user_label, item_label, batch_indicator):
+    start_temp = time.time()
     E_system = E_system_raw - E_collect
     E_target = E_target_raw - E_collect
     num_userG = user_label.shape[0]
@@ -75,9 +109,23 @@ def GG_F_mask(E_system_raw, E_target_raw, E_collect, user_label, item_label, bat
     GG_target_matrix = torch.zeros(num_userG, num_itemG)
     GG_system_matrix = torch.zeros(num_userG, num_itemG)
     GG_coll_matrix = torch.zeros(num_userG, num_itemG)
+    
+    print('------------------')
+    print('user label ', user_label.shape)   
+    print('item label ', item_label.shape)
+    print(user_label)
+    print(user_label.view(-1.1))    
 
     for i in range(num_userG):
         for j in range(num_itemG):
+            print(user_label[i].unique())
+            print(user_label[i].view(-1, 1).unique())
+
+            print(user_label[i].shape)
+            print(user_label[i].view(-1, 1).shape)
+            print(E_system.shape)
+            print(E_target.shape)
+            print(item_label.shape)
             diff = ((E_system * user_label[i].view(-1, 1) - E_target * user_label[i].view(-1, 1)) * \
                     item_label[j]).sum()
             dis_tmp = ((E_system * user_label[i].view(-1, 1)) * item_label[j]).sum()
@@ -98,11 +146,14 @@ def GG_F_mask(E_system_raw, E_target_raw, E_collect, user_label, item_label, bat
     metric = metric / num_userG / num_itemG
     dis = dis / num_userG / num_itemG
     rel = 2 * rel / num_userG / num_itemG
+    stop_temp = time.time()
+    print('Time GGF: ', stop_temp - start_temp)
     return [metric, dis, rel, GG_target_matrix, GG_system_matrix, GG_coll_matrix]
     # return metric, dis, rel
 
 
 def AI_F_mask(E_system, E_target, E_collect, batch_indicator):
+    start_temp = time.time()
     E_system = E_system - E_collect
     E_target = E_target - E_collect
     num_user = E_system.shape[0]
@@ -117,11 +168,14 @@ def AI_F_mask(E_system, E_target, E_collect, batch_indicator):
     metric = (metric / num).pow(2).sum() / num_item
     dis = (dis / num).pow(2).sum() / num_item
     rel = (rel / num / num).sum() / num_item
+    stop_temp = time.time()
+    print('Time AIF: ', stop_temp - start_temp)
 
     return [metric, dis, rel]
 
 
 def AG_F_mask(E_system, E_target, E_collect, item_label, batch_indicator):
+    start_temp = time.time()
     E_system = E_system - E_collect
     E_target = E_target - E_collect
     num_user = E_system.shape[0]
@@ -151,6 +205,8 @@ def AG_F_mask(E_system, E_target, E_collect, item_label, batch_indicator):
     metric = metric / num_itemG
     dis = dis / num_itemG
     rel = rel / num_itemG
+    stop_temp = time.time()
+    print('Time AGF: ', stop_temp - start_temp)
     return [metric, dis, rel]
 
 #reproduces figure 1 example

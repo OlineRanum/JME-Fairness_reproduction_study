@@ -41,30 +41,54 @@ def normalize_matrix_by_row(matrix):
     normalized_matrix = matrix / sum_of_rows[:, np.newaxis]
     return normalized_matrix
 
-
-def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, rand_tau=1):
-    # construct E_target
+def calc_num_rel(matrix_label):
     num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")#Y sum in 1st dim of rating matrix 6040x1
     print("num_rel: ", num_rel.shape)
     num_rel[num_rel == 0.0] = 1.0
     
-    # user browsing model  
+    return num_rel
+
+def load_user_browsing_model(args, matrix_label, num_rel):
     exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float")) #6040x1
     E_target = exposure_rel / num_rel * matrix_label #[6040,3706]
     print("exposure_rel: ", exposure_rel.shape)
     print("E target: ", E_target.shape)
+    return E_target
 
-    # construct E_collect
+def build_E_collect(E_target):
     if args.coll == 'Y':
         E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean() #[6040,3706]
     else:
         E_collect = np.zeros((E_target.shape[0], E_target.shape[1]))
         print("E_collect collect = N: ", E_collect.shape)
+    return E_collect
 
-    # construct E_system
-    user_size = E_target.shape[0]
+def calc_E_system(args, E_target):
+    if args.conduct == 'st':
+        E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
+        exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
+        print("exp vector: ", exp_vector.shape)
+        for i in range(len(top_item_id)):
+            top_item_id = [list(map(int, i)) for i in top_item_id]
+            E_system[i][top_item_id[i]] = exp_vector
+        return E_system
+
+def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, rand_tau=1):
+    # construct E_target
+    num_rel = calc_num_rel(matrix_label)
+    
+    # user browsing model  
+    E_target = load_user_browsing_model(args, matrix_label, num_rel)
+
+    # construct E_collect
+    E_collect = build_E_collect(E_target)
+
+    # To pytorch tensors 
+    E_target = torch.from_numpy(E_target)
+    E_collect = torch.from_numpy(E_collect)
 
     top_item_id = np.array(list(save_df["item"])).reshape(-1, 100) #[6040, 100]
+    
     print("top item id: ", top_item_id.shape)
     top_score = np.array(list(save_df["score"])).reshape(-1, 100)
     if args.norm == 'Y':
@@ -73,24 +97,26 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
     print("weight: ", weight.shape) #[6040, 100]
     # weight = softmax(np.power(top_score, rand_tau), axis=1)
 
-    E_target = torch.from_numpy(E_target)
-    E_collect = torch.from_numpy(E_collect)
+
     indicator = torch.ones((E_target.shape[0], E_target.shape[1]))
 
     # put the exposure value into the selected positions
     IIF_sp, IGF_sp, GIF_sp, GGF_sp, AIF_sp, AGF_sp = [], [], [], [], [], []
     sample_times = args.s_ep
     E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
+    
     #this is done 100 times (100 different rankings)
     for sample_epoch in trange(sample_times, ascii=False): # sample 100 rankings for each user 
         E_system_tmp = np.zeros((E_target.shape[0], E_target.shape[1]))
         exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")  # pre-compute the exposure_vector (100x1)
-        for i in range(user_size):
+        for i in range(len(top_item_id)):
             tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i]) #selects one permutation of 100 movies from /
             #top 100 movies from a user's rank with probability weights[user] (100x1)
             #print("tmp_select", tmp_selected)
+            tmp_selected = np.array([int(j) for j in tmp_selected])
             E_system_tmp[i][tmp_selected] = exp_vector
         E_system += E_system_tmp
+    print('Loop complete')
 
         # if sample_epoch < 10:
         #     E_system_tmp = torch.from_numpy(E_system_tmp)
@@ -105,42 +131,33 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
     print("E_system: ", E_system.shape)
 
     E_system = torch.from_numpy(E_system)
+    print("E_target: ", E_target.shape)
+    print("E_collect: ", E_collect.shape)
+    print('Indicator: ', indicator.shape)
 
     IIF_all = II_F(E_system, E_target, E_collect, indicator)
+    
     GIF_all = GI_F_mask(E_system, E_target, E_collect, user_label, indicator)
     AIF_all = AI_F_mask(E_system, E_target, E_collect, indicator)
     IGF_all = IG_F_mask(E_system, E_target, E_collect, item_label, indicator)
     GGF_all = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[:3]
     AGF_all = AG_F_mask(E_system, E_target, E_collect, item_label, indicator)
-    # GG_target_stochas = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[3]
-    # GG_system_stochas = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[4]
-
+    print('Metric evaluation complete')
     return IIF_all, GIF_all, IGF_all, GGF_all, AIF_all, AGF_all  # , IIF_sp, IGF_sp, GIF_sp, GGF_sp, AIF_sp, AGF_sp
-    # GG_system_stochas, GG_target_stochas
-
+    
 
 def eval_function_static(save_df, user_label, item_label, matrix_label, args):
     # construct E_target
-    
-    num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float") #Y sum in 1st dim of rating matrix 
-    print("num_rel: ", num_rel.shape)
-    num_rel[num_rel == 0.0] = 1.0
+    num_rel = calc_num_rel(matrix_label)
 
-    exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float"))
-    E_target = exposure_rel / num_rel * matrix_label
-    print("exposure_rel: ", exposure_rel.shape)
-    print("E target: ", E_target.shape)
+    # Calculate E_target with user browsing model
+    E_target = load_user_browsing_model(args, matrix_label, num_rel)
 
-    # construct E_system
-    user_size = E_target.shape[0]
+
 
     # construct E_collect (collectiion of exposures?), E_collect = random exposure
-    if args.coll == 'Y':
-        E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean()
-        print("E_collect collect = Y: ", E_collect.shape, E_target.mean())
-    else:
-        E_collect = np.zeros((E_target.shape[0], E_target.shape[1]))
-        print("E_collect collect = N: ", E_collect.shape)
+    E_collect = build_E_collect(E_target)
+
 
     top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
     print("top item id: ", top_item_id.shape)
@@ -150,7 +167,8 @@ def eval_function_static(save_df, user_label, item_label, matrix_label, args):
     E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
     exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
     print("exp vector: ", exp_vector.shape)
-    for i in range(user_size):
+    for i in range(len(top_item_id)):
+        top_item_id = [list(map(int, i)) for i in top_item_id]
         E_system[i][top_item_id[i]] = exp_vector
 
     print("E_target:", E_target.sum())
@@ -174,34 +192,21 @@ def eval_function_static(save_df, user_label, item_label, matrix_label, args):
 
 
 def compute_stochas(args):
-    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
-        save_df = pd.read_csv('./saved_model/ml/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
-                          compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
-    elif args.data == 'lt':
-        save_df = pd.read_csv('./saved_model/runs-libraryThing/run-{}-libraryThing-fold1.txt.gz'.format(args.model),
-                          compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
-
-    save_df = save_df.rename(columns={0: "user", 2: "item", 4: "score"})
-    save_df.user = save_df.user - 1
-    save_df['item'] = save_df['item'].map(item_mapping)
-    save_df = save_df.sort_values(["user", "score"], ascending=[True, False])
-    save_df = save_df.reset_index().drop(['index'], axis=1)
+    save_df = load_deterministic_ranker(args)
     if args.model == 'LDA':
         save_df["score"] = save_df["score"] * 1000
     elif args.model == 'Pop':
         save_df["score"] = save_df["score"] * 10
     elif args.model in ["PLSA", "RM1", "RSV", "CHI2", "HT", "KLD", "SVD", "UIR", "RM2", "LMWU", "LMWI", "NNU", "NNI"]:
         args.norm = 'Y'
-
+    
+    # List of beta_values
+    rand_tau_list = [8, 4, 2, 1, 0.5, 0.25, 0.125] # different values for beta
+    
     save_IIF, save_IGF, save_GIF, save_GGF, save_AIF, save_AGF = [], [], [], [], [], []
     save_IID, save_IGD, save_GID, save_GGD, save_AID, save_AGD = [], [], [], [], [], []
     save_IIR, save_IGR, save_GIR, save_GGR, save_AIR, save_AGR = [], [], [], [], [], []
 
-    save_IIF_sp, save_IGF_sp, save_GIF_sp, save_GGF_sp, save_AIF_sp, save_AGF_sp = [], [], [], [], [], []
-    save_IID_sp, save_IGD_sp, save_GID_sp, save_GGD_sp, save_AID_sp, save_AGD_sp = [], [], [], [], [], []
-    save_IIR_sp, save_IGR_sp, save_GIR_sp, save_GGR_sp, save_AIR_sp, save_AGR_sp = [], [], [], [], [], []
-
-    rand_tau_list = [8, 4, 2, 1, 0.5, 0.25, 0.125] # different values for beta
     # rand_tau_list = [1, 1e-1, 1e-2, 5e-2, 1e-3, 5e-3]
     len_tau = len(rand_tau_list)
 
@@ -240,6 +245,7 @@ def compute_stochas(args):
                 "IID": save_IID, "IGD": save_IGD, "GID": save_GID, "GGD": save_GGD, "AID": save_AID, "AGD": save_AGD,
                 "IIR": save_IIR, "IGR": save_IGR, "GIR": save_GIR, "GGR": save_GGR, "AIR": save_AIR, "AGR": save_AGR}
 
+    # Save files in json format
     for key in dict_all:
         if args.age == 'Y':
             with open("./save_exp/{}/{}_all_{}_Y.json".format(args.data, key, args.model), "w") as fp:
@@ -248,30 +254,14 @@ def compute_stochas(args):
             with open(
                     "./save_exp/{}/{}_all_{}.json".format(args.data, key, args.model), "w") as fp:
                 json.dump(dict_all[key], fp)
+    
 
     return dict_all
 
 
 def compute_static(args):
     # Load deterministic ranker
-    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
-        save_df = pd.read_csv('./saved_model/ml/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
-                          compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
-    elif args.data == 'lt':
-        save_df = pd.read_csv('./saved_model/runs-libraryThing/run-{}-libraryThing-fold1.txt.gz'.format(args.model),
-                          compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
-    
-    # Rename columns of dataframe
-    save_df = save_df.rename(columns={0: "user", 2: "item", 4: "score"})
-    
-    # Reset range of user indices to begin with zero
-    save_df.user = save_df.user - 1
-
-    save_df['item'] = save_df['item'].map(item_mapping)
-
-    # Sort 
-    save_df = save_df.sort_values(["user", "score"], ascending=[True, False])
-    save_df = save_df.reset_index().drop(['index'], axis=1)
+    save_df = load_deterministic_ranker(args)
 
     save_IIF, save_IGF, save_GIF, save_GGF, save_AIF, save_AGF = [], [], [], [], [], []
     save_IID, save_IGD, save_GID, save_GGD, save_AID, save_AGD = [], [], [], [], [], []
@@ -319,23 +309,36 @@ def compute_static(args):
             with open("./save_exp/{}/{}_all_{}_static.json".format(args.data, key, args.model), "w") as fp:
                 json.dump(dict[key], fp)
 
-
-def compute_exp_matrix(args):
+def load_deterministic_ranker(args):
     if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
         save_df = pd.read_csv('./saved_model/ml/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
                           compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
     elif args.data == 'lt':
         save_df = pd.read_csv('./saved_model/runs-libraryThing/run-{}-libraryThing-fold1.txt.gz'.format(args.model),
                           compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
-                          
+    
+
     save_df = save_df.rename(columns={0: "user", 2: "item", 4: "score"})
-    save_df.user = save_df.user - 1
+    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
+        save_df.user = save_df.user - 1
+    #print(save_df['item'])
+    #print(item_mapping)
     save_df['item'] = save_df['item'].map(item_mapping)
+    save_df = save_df.dropna().reset_index(drop = True)
+    save_df.drop(save_df.tail(len(save_df)%100).index, inplace = True)
+    
+    
     save_df = save_df.sort_values(["user", "score"], ascending=[True, False])
     save_df = save_df.reset_index().drop(['index'], axis=1)
+    return save_df
+
+
+
+def compute_exp_matrix(args):
+    save_df = load_deterministic_ranker(args)
+
     if args.model == 'LDA':
         save_df["score"] = save_df["score"] * 1000
-
     save_IIF, save_IGF, save_GIF, save_GGF, save_AIF, save_AGF = [], [], [], [], [], []
     save_IID, save_IGD, save_GID, save_GGD, save_AID, save_AGD = [], [], [], [], [], []
     save_IIR, save_IGR, save_GIR, save_GGR, save_AIR, save_AGR = [], [], [], [], [], []
@@ -360,7 +363,7 @@ def compute_exp_matrix(args):
 
         # construct E_system
         user_size = E_target.shape[0]
-
+        print(save_df)
         top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
         top_score = np.array(list(save_df["score"])).reshape(-1, 100)
         # This was commented out at some point
@@ -373,8 +376,9 @@ def compute_exp_matrix(args):
         for _ in trange(sample_times, ascii=False):
             E_system_tmp = np.zeros((E_target.shape[0], E_target.shape[1]))
             exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
-            for i in range(user_size):
+            for i in range(len(top_item_id)):
                 tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i])
+                tmp_selected = np.array([int(j) for j in tmp_selected])
                 E_system_tmp[i][tmp_selected] = exp_vector
             E_system += E_system_tmp
         E_system /= sample_times
@@ -409,7 +413,8 @@ def compute_exp_matrix(args):
     # put the exposure value into the selected positions
     E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
     exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
-    for i in range(user_size):
+    for i in range(len(top_item_id)):
+        top_item_id = [list(map(int, i)) for i in top_item_id]
         E_system[i][top_item_id[i]] = exp_vector
 
     E_system = torch.from_numpy(E_system)

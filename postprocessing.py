@@ -27,6 +27,9 @@ def load_data(model, Experiment_nr, group, metric_list = metric_list, apply_min_
             elif group == 'Gender':
                 metrics = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
                 static  = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
+            elif group == 'lt':
+                metrics = json.load(open('./save_exp/lt/Experiment_' + str(Experiment_nr) + '_' + model + '/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
+                static  = json.load(open('./save_exp/lt/Experiment_' + str(Experiment_nr) + '_' + model + '/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
             else:
                 print('Unknown group')
             metrics.extend(static)
@@ -47,16 +50,19 @@ def load_data(model, Experiment_nr, group, metric_list = metric_list, apply_min_
 
 
 
-def AUC_trap(x, y):
+def AUC_trap(x, y, minval):
     area = 0
+    
     for i in range(len(x)-1):
-        area += 0.5*(y[i+1]+ y[i])*(x[i+1]- x[i])
+        if x[i+1] <= minval:
+            area += 0.5*(y[i+1]+ y[i])*(x[i+1] - x[i])
     return area 
 
-def AUC(x, y):
+def AUC(x, y, minval):
     area = 0
     for i in range(len(x)-1):
-        area += (x[i+1]- x[i])*y[i+1] - 0.5*(x[i+1]- x[i])*(y[i+1]-y[i])
+        if x[i+1] <= minval:
+            area += (x[i+1]- x[i])*y[i+1] - 0.5*(x[i+1]- x[i])*(y[i+1]-y[i])
     return area 
 
 def find_global_min_max(models):
@@ -110,6 +116,12 @@ def figure_3(models, model_name = ['BPRMF', 'LDA', 'PureSVD', 'SLIM', 'WRMF'], c
     fig, axs = plt.subplots(1, 6, constrained_layout=True, figsize = (20, 3.5))
     
     x_axis = np.arange(len(x_values))
+    x_min_vals = np.ones(len(column_names))
+    for model in models:
+        for metric in range(len(column_names)):
+                x_min_vals[metric] = model[column_names[metric]][1][-1]
+     
+
 
     for i in range(len(models)):
         model = models[i]
@@ -118,7 +130,7 @@ def figure_3(models, model_name = ['BPRMF', 'LDA', 'PureSVD', 'SLIM', 'WRMF'], c
             axs[metric].plot(model[column_names[metric]][1], model[column_names[metric]][2], '--*', label = model_name[i])
             axs[metric].set_xlabel(column_names[metric] + '-D') 
             axs[metric].set_ylabel(column_names[metric] + '-R')
-            AUC_list.append(np.round(AUC(model[column_names[metric]][1], model[column_names[metric]][2]), 5))
+            AUC_list.append(np.round(AUC(model[column_names[metric]][1], model[column_names[metric]][2], x_min_vals[metric]), 5))
 
         # Print AUC table
         print(model_name[i], ' & ' , AUC_list[0], ' & ', AUC_list[1], ' & ', AUC_list[2], ' & ', AUC_list[3], ' & ', AUC_list[4], ' & ',AUC_list[5], ' \\\\ ')
@@ -128,10 +140,10 @@ def figure_3(models, model_name = ['BPRMF', 'LDA', 'PureSVD', 'SLIM', 'WRMF'], c
 
 # Load unnormalized data
 BPRMF = load_data('BPRMF', 1, group)
-LDA = load_data('LDA', 3, group)
-PureSVD = load_data('PureSVD', 4, group)
-SLIM = load_data('SLIM', 5, group)
-WRMF = load_data('WRMF', 6, group)
+LDA = load_data('LDA', 2, group)
+PureSVD = load_data('PureSVD', 3, group)
+SLIM = load_data('SLIM', 4, group)
+WRMF = load_data('WRMF', 5, group)
 all_models = [BPRMF, LDA, PureSVD, SLIM, WRMF]
 
 # Find global min and max across all models per metric per component
@@ -140,13 +152,20 @@ global_min, global_max = find_global_min_max(all_models)
 
 # Normalize data
 BPRMF = load_data('BPRMF', 1, group, apply_min_max=True, max_ = global_max, min_ = global_min)
-LDA = load_data('LDA', 3, group, apply_min_max=True, max_ = global_max, min_ = global_min)
-PureSVD = load_data('PureSVD', 4, group, apply_min_max=True, max_ = global_max, min_ = global_min)
-SLIM = load_data('SLIM', 5, group, apply_min_max=True, max_ = global_max, min_ = global_min)
-WRMF = load_data('WRMF', 6, group, apply_min_max=True, max_ = global_max, min_ = global_min)
+LDA = load_data('LDA', 2, group, apply_min_max=True, max_ = global_max, min_ = global_min)
+PureSVD = load_data('PureSVD', 3, group, apply_min_max=True, max_ = global_max, min_ = global_min)
+SLIM = load_data('SLIM', 4, group, apply_min_max=True, max_ = global_max, min_ = global_min)
+WRMF = load_data('WRMF', 5, group, apply_min_max=True, max_ = global_max, min_ = global_min)
 all_models_norm = [BPRMF, LDA, PureSVD, SLIM, WRMF]
-
+'''
 BPRMF_mm = load_data('BPRMF', 1, group, apply_min_max= True)
-figure_2(BPRMF_mm)
+#figure_2(BPRMF_mm)
 
+BPRMF_mm = load_data('BPRMF', 1, 'lt', apply_min_max= True)
+figure_2(BPRMF_mm)
+figure_3([BPRMF_mm])
+'''
+#BPRMF_new = load_data('BPRMF', 1, 'lt', apply_min_max= True)
+#figure_2(BPRMF_new)
+#figure_3([BPRMF_new])
 figure_3(all_models_norm)

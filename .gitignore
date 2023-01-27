@@ -11,7 +11,25 @@
 # Executables
 *.exe
 
+
+*.json
+
+
+
+*.ods
+*.png
+
 # Metadata
 *.aliases
 *.lvlps
 .cache/
+
+
+*.gz
+
+# Folders
+data/
+saved_model/
+save_exp/
+__pycache__/
+*.pyc
