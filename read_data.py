@@ -339,6 +339,7 @@ def genre_ml100k_index(df):
 
 def engagement_index(df):
     df_length = df[['item', 'commentlength']]
+    print(len(df_length))
     df_length = df_length.groupby('item')['commentlength'].mean().reset_index()
     ls = df_length['commentlength'].tolist()
 
@@ -389,7 +390,7 @@ def engagement_index(df):
     index_genre = [] #list 18
     for i in range(genre_mask.shape[0]):
         index_genre.append(torch.tensor(np.where(genre_mask[i] == 1)[0]).long())
-    
+    print('engagement mask', genre_mask.shape)
     return index_genre, genre_mask
 
 

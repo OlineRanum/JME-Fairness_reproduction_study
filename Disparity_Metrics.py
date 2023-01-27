@@ -3,6 +3,9 @@ import time
 
 def II_F(E_system, E_target, E_collect, batch_indicator):
     print('initialized')
+    E_system.detach()
+    E_target.detach()
+    E_collect.detach()
     start_temp = time.time()
     # the batch_indicator is a matrix, where 0: hold-out; 1: should consider
     E_system = E_system - E_collect
@@ -82,8 +85,8 @@ def GI_F_mask(E_system, E_target, E_collect, user_label, batch_indicator):
 
 def IG_F_mask(E_system, E_target, E_collect, item_label, batch_indicator):
     start_temp = time.time()
-    E_system = E_system - E_collect
-    E_target = E_target - E_collect
+    E_system = (E_system - E_collect).double()
+    E_target = (E_target - E_collect).double()
     num_user = E_system.shape[0]
     num_itemG = item_label.shape[0]
     metric, dis, rel = 0, 0, 0
