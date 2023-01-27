@@ -421,12 +421,14 @@ if __name__ == '__main__':
     
     # Obtain group indices for Movielens dataset
     if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
-        index_F, index_M, index_gender, index_age, index_genre, index_pop, age_matrix, pop_mask, genre_matrix \
+        index_F, index_M, index_gender, index_age, index_genre, index_pop, index_occup, age_matrix, pop_mask, occup_matrix, genre_matrix \
             = obtain_group_index(df, args)
         
         # Set user group lable:
         if args.age == 'Y':
             user_label = age_matrix #[7,6040]
+        elif args.age == 'Occup':
+            user_label = occup_matrix
         else:
             # Build matrix with gender information
             gender_matrix = torch.zeros(2, len(index_F) + len(index_M)) #[2, #females + #males] , 1st row for F 2nd for M
