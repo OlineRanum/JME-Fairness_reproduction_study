@@ -248,14 +248,15 @@ def age_index(df, user_size, data):
         dic = df.groupby('user')['nhelpful'].mean().to_dict()
 
     for id, attribute in dic.items():
+        id = int(id)
         if data == 'ml-100k':
             dic[id] = age_mapping_ml100k(attribute[0])
         elif data == 'ml-1m':
             dic[id] = age_mapping_ml1m(attribute[0])
         elif data == 'lt':
-            dic[id] = help_mapping(attribute[0])
+            dic[id] = help_mapping(attribute)
         else:
-            print('Data not avilable')
+            print('Mapping not avilable for this dataset')
 
     index_age = [[], [], [], [], [], [], []]
     
@@ -329,7 +330,7 @@ def genre_ml100k_index(df):
         ['item', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
          'g16', 'g17', 'g18']]
     df_genre = df_genre.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True).drop(columns=['item'])
-    print('df genre', df_genre)
+    
     genre_name = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
                   'g16', 'g17', 'g18']
     index_genre = []
@@ -475,12 +476,6 @@ def preprocessing(args):
    
     user_size = len(df['user'].unique())
     item_size = len(df['item'].unique())
-    print('data_size: ', len(df))
-
-    print("user_size:", user_size)
-    print("item_size:", item_size)
-
-    #print(df.head(10))
 
     """construct matrix_label"""
     #if the rating is >3 the user would watch it
@@ -496,8 +491,7 @@ def preprocessing(args):
     # O: (user, item), rate
     matrix_label = scipy.sparse.csr_matrix(
         (np.array(df_rate['rate']), (np.array(df_rate['user']), np.array(df_rate['item']))))
-    print('Matrix Label', matrix_label.shape)
-
+   
     return df, item_mapping, matrix_label, user_size, item_size
 
 
@@ -514,16 +508,12 @@ def obtain_group_index(df, args):
     #an array of arrays for all 7 age groups and an array that has 1 if the user belongs to a specific age group
     index_age, age_mask = age_index(df, user_size, args.data)
     index_pop, pop_mask = pop_index(df)
-    # print("index_age:", index_age)
-    # print("index_pop:", index_pop)
+
     index_genre = []
     if args.data == 'ml-100k':
         index_genre, genre_mask = genre_ml100k_index(df)
     elif args.data == 'ml-1m':
         index_genre, genre_mask = genre_ml1m_index(df)
-
-    # print("pop_mask:", pop_mask, pop_mask.shape)
-    # print("genre_mask:", genre_mask, genre_mask.shape)
 
     return index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask
 

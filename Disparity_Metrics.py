@@ -24,26 +24,17 @@ def GI_F_mask(E_system, E_target, E_collect, user_label, batch_indicator):
     batch_indicator = batch_indicator.double()
     metric, dis, rel = 0, 0, 0
 
-    print('E sys ', E_system.shape)
-    print('User lab ', user_label.shape)
-    print('User lab view ', user_label.view(-1,1))
-    print('User lab view', user_label.view(-1,1).shape)
-    print('user lab 0 ', user_label[0].shape)
-    print('batch indicator ', batch_indicator.shape)
-    print('num user G ', num_userG)
-    
+    """
     diff = (torch.mm(user_label, E_system) - torch.mm(user_label, E_target)).sum(0, keepdim = True) # -E_target*user_label)#.sum(0, keepdim = True)
     dis  = torch.mm(user_label, E_system).sum(0, keepdim=True)
     rel  = dis*torch.mm(user_label, E_target).sum(0, keepdim = True)
     num = torch.mm(user_label, batch_indicator).sum(0, keepdim = True)
     num[num == 0] = 1
-    print('num', num.shape)
     metric = (diff/num).pow(2).sum()
-    print('not dead 1')
+    
     dis = dis/num.pow(2).sum()
-    print('not dead 2')
     rel = (rel/num/num).sum()
-    print('not dead 3')
+    """
     for i in range(num_userG):
         diff = (E_system * user_label[i].view(-1, 1) - E_target * user_label[i].view(-1, 1)).sum(0, keepdim=True)
         
@@ -52,14 +43,13 @@ def GI_F_mask(E_system, E_target, E_collect, user_label, batch_indicator):
                 E_target * user_label[i].view(-1, 1)).sum(
             0, keepdim=True)
         num = (batch_indicator * user_label[i].view(-1, 1)).sum(0, keepdim=True)
-        print(num.shape)
+        
         num[num == 0] = 1
 
         metric += (diff / num).pow(2).sum()
         dis += (dis_tmp / num).pow(2).sum()
         rel += (rel_tmp / num / num).sum()
-        print('not dead 4')
-
+        
     metric = metric / num_userG / num_item
     dis = dis / num_userG / num_item
     rel = 2 * rel / num_userG / num_item
@@ -110,22 +100,10 @@ def GG_F_mask(E_system_raw, E_target_raw, E_collect, user_label, item_label, bat
     GG_system_matrix = torch.zeros(num_userG, num_itemG)
     GG_coll_matrix = torch.zeros(num_userG, num_itemG)
     
-    print('------------------')
-    print('user label ', user_label.shape)   
-    print('item label ', item_label.shape)
-    print(user_label)
-    print(user_label.view(-1.1))    
 
     for i in range(num_userG):
         for j in range(num_itemG):
-            print(user_label[i].unique())
-            print(user_label[i].view(-1, 1).unique())
 
-            print(user_label[i].shape)
-            print(user_label[i].view(-1, 1).shape)
-            print(E_system.shape)
-            print(E_target.shape)
-            print(item_label.shape)
             diff = ((E_system * user_label[i].view(-1, 1) - E_target * user_label[i].view(-1, 1)) * \
                     item_label[j]).sum()
             dis_tmp = ((E_system * user_label[i].view(-1, 1)) * item_label[j]).sum()
@@ -193,15 +171,7 @@ def AG_F_mask(E_system, E_target, E_collect, item_label, batch_indicator):
         metric += (diff / num).pow(2)
         dis += (dis_tmp / num).pow(2)
         rel += (rel_tmp / num / num).sum()
-        # print("metic:", metric)
-        # print("rel:", rel)
-
-    # for item_g in itemG:
-    #     divider = batch_indicator[:, item_g].sum()
-    #     if divider == 0:
-    #         res += 0
-    #     else:
-    #         res += ((E_system[:, item_g] - E_target[:, item_g]).sum() / divider).pow(2)
+       
     metric = metric / num_itemG
     dis = dis / num_itemG
     rel = rel / num_itemG
@@ -211,19 +181,8 @@ def AG_F_mask(E_system, E_target, E_collect, item_label, batch_indicator):
 
 #reproduces figure 1 example
 if __name__ == '__main__':
-    # E_system = torch.tensor([[0.4, 0.5, 0.1], [0.3, 0.2, 0.5], [0.2, 0.5, 0.3]]).float()
-    # E_system2 = torch.tensor([[0.0, 0.9, 0.1], [0.2, 0.3, 0.5], [0.3, 0.5, 0.2]]).float()
-    #
-    # E_target = torch.tensor([[0.0, 0.5, 0.5], [0.33, 0.33, 0.33], [0.0, 1.0, 0.0]]).float()
-    #
-    # item_label = torch.tensor([[1, 1, 0], [0, 0, 1]]).long()
-    # user_label = torch.tensor([[1, 0, 1], [0, 1, 0]]).long()
-    #
-    # # item_label2 = torch.tensor([[0, 0, 1], [1, 0, 0], [1, 1, 0]]).long()
-    # # user_label2 = torch.tensor([[0, 0, 1], [1, 1, 0]]).long()
-    #
-    # # indicator = torch.tensor([[0, 1, 1], [1, 1, 1], [1, 0, 1]]).float()
-    # indicator = torch.tensor([[1, 1, 1], [1, 1, 1], [1, 1, 1]]).float()
+    """ Run Toy Example 
+    """
 
     E_system1 = torch.tensor([[0.5, 0.0, 0.5, 0.0],
                               [0.0, 0.5, 0.0, 0.5],

@@ -146,14 +146,10 @@ def eval_function_static(save_df, user_label, item_label, matrix_label, args):
     # put the exposure value into the selected positions
     E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
     exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
-    print("exp vector: ", exp_vector.shape)
+    
     for i in range(len(top_item_id)):
         top_item_id = [list(map(int, i)) for i in top_item_id]
         E_system[i][top_item_id[i]] = exp_vector
-
-    print("E_target:", E_target.sum())
-    print("E_system:", E_system.sum())
-    print("E_collect:", E_collect.sum())
 
     E_system = torch.from_numpy(E_system)
     E_target = torch.from_numpy(E_target)
@@ -246,9 +242,7 @@ def compute_static(args):
 
     IIF_all, GIF_all, IGF_all, GGF_all, AIF_all, AGF_all \
         = eval_function_static(save_df, user_label, item_label, matrix_label, args)
-    # print("IIF_all:", IIF_all)
-    # print("IIF_all[0]:", IIF_all[0])
-    # print("IIF_all[0]:", IIF_all[0].item())
+
     save_IIF.append(IIF_all[0].item())
     save_GIF.append(GIF_all[0].item())
     save_IGF.append(IGF_all[0].item())
