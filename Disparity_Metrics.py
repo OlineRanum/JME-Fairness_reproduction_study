@@ -34,6 +34,16 @@ def GI_F_mask(E_system, E_target, E_collect, user_label, batch_indicator):
     
     dis = dis/num.pow(2).sum()
     rel = (rel/num/num).sum()
+    stop_temp = time.time()
+    print('Matrix multiplication stats ------------------------')
+    print(metric.unique())
+    print(metric.shape)
+    print(dis.unique())
+    print(dis.shape)
+    print(rel.unique())
+    print(rel.shape)
+    print('Time GIF: ', stop_temp - start_temp)
+    start_temp = time.time()
     """
     for i in range(num_userG):
         diff = (E_system * user_label[i].view(-1, 1) - E_target * user_label[i].view(-1, 1)).sum(0, keepdim=True)
@@ -54,6 +64,13 @@ def GI_F_mask(E_system, E_target, E_collect, user_label, batch_indicator):
     dis = dis / num_userG / num_item
     rel = 2 * rel / num_userG / num_item
     stop_temp = time.time()
+    print('Forloop stats ------------------------')
+    print(metric.unique())
+    print(metric.shape)
+    print(dis.unique())
+    print(dis.shape)
+    print(rel.unique())
+    print(rel.shape)
     print('Time GIF: ', stop_temp - start_temp)
     return [metric, dis, rel]
 

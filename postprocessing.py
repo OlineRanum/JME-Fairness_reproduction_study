@@ -167,7 +167,7 @@ BPRMF_mm = load_data('BPRMF', 1, 'lt', apply_min_max= True)
 figure_2(BPRMF_mm)
 figure_3([BPRMF_mm])
 '''
-BPRMF_new = load_data('BPRMF', 1, 'Gender', apply_min_max= True)
+BPRMF_new = load_data('BPRMF', 1, 'lt', apply_min_max= True)
 figure_2(BPRMF_new)
 figure_3([BPRMF_new])
 #figure_3(all_models_norm)
