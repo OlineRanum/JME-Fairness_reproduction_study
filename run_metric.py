@@ -35,43 +35,81 @@ def parser_args():
 
 
 def normalize_matrix_by_row(matrix):
+    """ Normalize matrix per row
+    Input: 
+        matrix: matrix to be normalized
+    Output:
+        normalized_matrix: input matrix normalized by row
+    """
     sum_of_rows = matrix.sum(axis=1)
     normalized_matrix = matrix / sum_of_rows[:, np.newaxis]
     return normalized_matrix
 
 def calc_num_rel(matrix_label):
+    """ Calculate the 
+    Input:
+        matrix_label: matrix of labels
+    Output:
+        num_rel: 
+    """
     num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")#Y sum in 1st dim of rating matrix 6040x1
     num_rel[num_rel == 0.0] = 1.0
     
     return num_rel
 
-def load_user_browsing_model(args, matrix_label, num_rel):
-    exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float")) #6040x1
-    E_target = exposure_rel / num_rel * matrix_label #[6040,3706]
+
+def calc_E_target(args, matrix_label, num_rel):
+    """ Calculate E_target with user browsing model (USM)
+    """
+    usm_exposure = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float")) #6040x1
+    E_target = usm_exposure / num_rel * matrix_label #[6040,3706]
     return E_target
 
 def build_E_collect(E_target):
+    """ Calculate E_collect
+    """
     if args.coll == 'Y':
         E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean() #[6040,3706]
     else:
         E_collect = np.zeros((E_target.shape[0], E_target.shape[1]))
     return E_collect
 
-def calc_E_system(args, E_target):
+def calc_E_system(args, E_target, top_item_id, weight = np.nan):
+    """ Calculate E_system
+    """
+
+    E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
+    
     if args.conduct == 'st':
-        E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
         exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
         for i in range(len(top_item_id)):
             top_item_id = [list(map(int, i)) for i in top_item_id]
             E_system[i][top_item_id[i]] = exp_vector
-        return E_system
+        
+        return  torch.from_numpy(E_system)
+    
+    if args.conduct == 'sh':
+        sample_times = args.s_ep
+        for sample_epoch in trange(sample_times, ascii=False): # sample 100 rankings for each user 
+            E_system_tmp = np.zeros((E_target.shape[0], E_target.shape[1]))
+            exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")  # pre-compute the exposure_vector (100x1)
+            for i in range(len(top_item_id)):
+                tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i]) #selects one permutation of 100 movies from /
+                #top 100 movies from a user's rank with probability weights[user] (100x1)
+                
+                tmp_selected = np.array([int(j) for j in tmp_selected])
+                E_system_tmp[i][tmp_selected] = exp_vector
+            E_system += E_system_tmp
+        E_system /= sample_times
+
+        return torch.from_numpy(E_system)
 
 def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, rand_tau=1):
     # construct E_target
     num_rel = calc_num_rel(matrix_label)
     
     # user browsing model  
-    E_target = load_user_browsing_model(args, matrix_label, num_rel)
+    E_target = calc_E_target(args, matrix_label, num_rel)
 
     # construct E_collect
     E_collect = build_E_collect(E_target)
@@ -79,46 +117,20 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
     # To pytorch tensors 
     E_target = torch.from_numpy(E_target)
     E_collect = torch.from_numpy(E_collect)
-
+    print('numrel', num_rel.shape)
+    print('TARGET', E_target.shape)
+    print(len(save_df['item']))
     top_item_id = np.array(list(save_df["item"])).reshape(-1, 100) #[6040, 100]
-    
     top_score = np.array(list(save_df["score"])).reshape(-1, 100)
+    print('top_item_id', top_item_id.shape)
+    print('top score ', top_score.shape)
     if args.norm == 'Y':
         top_score = normalize_matrix_by_row(top_score)
     weight = softmax(top_score / rand_tau, axis=1) #Y/b in quation of p(d|u)
     
     indicator = torch.ones((E_target.shape[0], E_target.shape[1]))
 
-    # put the exposure value into the selected positions
-    IIF_sp, IGF_sp, GIF_sp, GGF_sp, AIF_sp, AGF_sp = [], [], [], [], [], []
-    sample_times = args.s_ep
-    E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
-    
-    #this is done 100 times (100 different rankings)
-    for sample_epoch in trange(sample_times, ascii=False): # sample 100 rankings for each user 
-        E_system_tmp = np.zeros((E_target.shape[0], E_target.shape[1]))
-        exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")  # pre-compute the exposure_vector (100x1)
-        for i in range(len(top_item_id)):
-            tmp_selected = np.random.choice(top_item_id[i], 100, replace=False, p=weight[i]) #selects one permutation of 100 movies from /
-            #top 100 movies from a user's rank with probability weights[user] (100x1)
-            #print("tmp_select", tmp_selected)
-            tmp_selected = np.array([int(j) for j in tmp_selected])
-            E_system_tmp[i][tmp_selected] = exp_vector
-        E_system += E_system_tmp
-    
-
-        # if sample_epoch < 10:
-        #     E_system_tmp = torch.from_numpy(E_system_tmp)
-        #     IIF_sp.append(II_F(E_system_tmp, E_target, E_collect, indicator))
-        #     GIF_sp.append(GI_F_mask(E_system_tmp, E_target, E_collect, user_label, indicator))
-        #     AIF_sp.append(AI_F_mask(E_system_tmp, E_target, E_collect, indicator))
-        #     IGF_sp.append(IG_F_mask(E_system_tmp, E_target, E_collect, item_label, indicator))
-        #     GGF_sp.append(GG_F_mask(E_system_tmp, E_target, E_collect, user_label, item_label, indicator)[:3])
-        #     AGF_sp.append(AG_F_mask(E_system_tmp, E_target, E_collect, item_label, indicator))
-
-    E_system /= sample_times
-
-    E_system = torch.from_numpy(E_system)
+    E_system = calc_E_system(args, E_target, top_item_id, weight=weight)
 
     IIF_all = II_F(E_system, E_target, E_collect, indicator)
     GIF_all = GI_F_mask(E_system, E_target, E_collect, user_label, indicator)
@@ -135,23 +147,16 @@ def eval_function_static(save_df, user_label, item_label, matrix_label, args):
     num_rel = calc_num_rel(matrix_label)
 
     # Calculate E_target with user browsing model
-    E_target = load_user_browsing_model(args, matrix_label, num_rel)
+    E_target = calc_E_target(args, matrix_label, num_rel)
 
     # construct E_collect (collectiion of exposures?), E_collect = random exposure
     E_collect = build_E_collect(E_target)
 
     top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
-    top_score = np.array(list(save_df["score"])).reshape(-1, 100)
-
-    # put the exposure value into the selected positions
-    E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
-    exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
     
-    for i in range(len(top_item_id)):
-        top_item_id = [list(map(int, i)) for i in top_item_id]
-        E_system[i][top_item_id[i]] = exp_vector
+    # put the exposure value into the selected positions
+    E_system = calc_E_system(args, E_target, top_item_id)
 
-    E_system = torch.from_numpy(E_system)
     E_target = torch.from_numpy(E_target)
     E_collect = torch.from_numpy(E_collect)
     indicator = torch.ones((E_target.shape[0], E_target.shape[1]))
@@ -199,7 +204,7 @@ def compute_stochas(args):
             save_GGF.append(GGF_all[0].item())
             save_AIF.append(AIF_all[0].item())
             save_AGF.append(AGF_all[0].item())
-
+ 
             save_IID.append(IIF_all[1].item())
             save_GID.append(GIF_all[1].item())
             save_IGD.append(IGF_all[1].item())
@@ -325,7 +330,7 @@ def compute_exp_matrix(args):
         num_rel = calc_num_rel(matrix_label)
 
         # Calculate E_target with user browsing model
-        E_target = load_user_browsing_model(args, matrix_label, num_rel)
+        E_target = calc_E_target(args, matrix_label, num_rel)
 
         # construct E_collect
         E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean()
@@ -443,7 +448,7 @@ if __name__ == '__main__':
         item_label = engagement_matrix
 
     matrix_label = np.array(matrix_label.todense()) #rating matrix for matrix factorization, user-item relevance matrix Y [6040, 3706]
-
+    print('mat lab', matrix_label.shape)
     # Print set-up statics
     print('-------- Experiment Configuration --------')
     print("norm:", args.norm)

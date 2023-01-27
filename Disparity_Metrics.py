@@ -2,6 +2,7 @@ import torch
 import time
 
 def II_F(E_system, E_target, E_collect, batch_indicator):
+    print('initialized')
     start_temp = time.time()
     # the batch_indicator is a matrix, where 0: hold-out; 1: should consider
     E_system = E_system - E_collect
@@ -11,6 +12,10 @@ def II_F(E_system, E_target, E_collect, batch_indicator):
     rel = 2 * (E_system * E_target).sum() / batch_indicator.sum()
     stop_temp = time.time()
     print('Time IIF: ', stop_temp - start_temp)
+    print('Target', E_target.shape)
+    print('System', E_system.shape)
+    print('Collect', E_collect.shape)
+    print('indic', batch_indicator.shape)
     return [metric, dis, rel]
 
 
@@ -19,7 +24,7 @@ def GI_F_mask(E_system, E_target, E_collect, user_label, batch_indicator):
     E_system = (E_system - E_collect).double()
     E_target = (E_target - E_collect).double()
     num_userG = user_label.shape[0]
-    num_item = E_system.shape[1]
+    num_item = E_system.shape[1]    
     user_label = user_label.double()
     batch_indicator = batch_indicator.double()
     metric, dis, rel = 0, 0, 0

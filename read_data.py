@@ -88,8 +88,11 @@ class LibraryThing(DatasetLoader):
             except IndexError:
                 pass
         
+        # Assign ordered unique numerical index to each username
         df, user_mapping = convert_unique_idx(df, 'user')
+        # Assign ordered unique numerical index to each item
         df, item_mapping = convert_unique_idx(df, 'item')
+
         return df, item_mapping
 
 
@@ -136,7 +139,6 @@ class MovieLens1M(DatasetLoader):
         
         # O: Reset index of users to zero 
         df.user = df.user - 1
-
 
         # O: Reassign movie indices
         df, item_mapping = convert_unique_idx(df, 'item')
@@ -491,7 +493,7 @@ def preprocessing(args):
     # O: (user, item), rate
     matrix_label = scipy.sparse.csr_matrix(
         (np.array(df_rate['rate']), (np.array(df_rate['user']), np.array(df_rate['item']))))
-   
+    
     return df, item_mapping, matrix_label, user_size, item_size
 
 
@@ -514,7 +516,8 @@ def obtain_group_index(df, args):
         index_genre, genre_mask = genre_ml100k_index(df)
     elif args.data == 'ml-1m':
         index_genre, genre_mask = genre_ml1m_index(df)
-
+    #print('index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask')
+    #print(np.array(index_F).shape, np.array(index_M).shape, np.array(index_gender).shape, np.array(index_age).shape, np.array(index_genre).shape, np.array(index_pop).shape, np.array(age_mask).shape, np.array(pop_mask).shape, np.array(genre_mask).shape)
     return index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask
 
 def obtain_group_index_tl(df, args):
@@ -522,7 +525,8 @@ def obtain_group_index_tl(df, args):
     #matrices of where in the df there is an index for each group
     index_engagement, engagement_mask = engagement_index(df)
     index_helpful, helpful_mask = age_index(df, user_size, args.data)
-
+    #print('index_engagement, index_helpful, engagement_mask, helpful_mask')
+    #print(np.array(index_engagement).shape, np.array(index_helpful).shape, np.array(engagement_mask).shape, np.array(helpful_mask).shape)
     return index_engagement, index_helpful, engagement_mask, helpful_mask
 
 
