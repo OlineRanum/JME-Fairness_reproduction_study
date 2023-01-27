@@ -20,9 +20,7 @@ def parser_args():
     parser.add_argument('--data', type=str, default='ml-1m', choices=['ml-1m', 'ml-100k', 'lt'],
                         help="File path for data")
     parser.add_argument('--gpu_id', type=int, default=0)
-    # Seed
     parser.add_argument('--seed', type=int, default=0, help="Seed (For reproducability)")
-    # Model
     parser.add_argument('--model', type=str, default='Pop')
     parser.add_argument('--gamma', type=float, default=0.8, help="patience factor")
     parser.add_argument('--temp', type=float, default=0.1, help="temperature. how soft the ranks to be")
@@ -31,7 +29,7 @@ def parser_args():
     parser.add_argument('--norm', type=str, default='N')
     parser.add_argument('--coll', type=str, default='Y')
     parser.add_argument('--age', type=str, default='N')
-
+    parser.add_argument('--ndatapoints', type=int, default= 5000)
     parser.add_argument('--conduct', type=str, default='sh')
     return parser.parse_args()
 
@@ -43,7 +41,6 @@ def normalize_matrix_by_row(matrix):
 
 def calc_num_rel(matrix_label):
     num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")#Y sum in 1st dim of rating matrix 6040x1
-    print("num_rel: ", num_rel.shape)
     num_rel[num_rel == 0.0] = 1.0
     
     return num_rel
@@ -51,8 +48,6 @@ def calc_num_rel(matrix_label):
 def load_user_browsing_model(args, matrix_label, num_rel):
     exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float")) #6040x1
     E_target = exposure_rel / num_rel * matrix_label #[6040,3706]
-    print("exposure_rel: ", exposure_rel.shape)
-    print("E target: ", E_target.shape)
     return E_target
 
 def build_E_collect(E_target):
@@ -60,14 +55,12 @@ def build_E_collect(E_target):
         E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean() #[6040,3706]
     else:
         E_collect = np.zeros((E_target.shape[0], E_target.shape[1]))
-        print("E_collect collect = N: ", E_collect.shape)
     return E_collect
 
 def calc_E_system(args, E_target):
     if args.conduct == 'st':
         E_system = np.zeros((E_target.shape[0], E_target.shape[1]))
         exp_vector = np.power(args.gamma, np.arange(100) + 1).astype("float")
-        print("exp vector: ", exp_vector.shape)
         for i in range(len(top_item_id)):
             top_item_id = [list(map(int, i)) for i in top_item_id]
             E_system[i][top_item_id[i]] = exp_vector
@@ -89,15 +82,11 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
 
     top_item_id = np.array(list(save_df["item"])).reshape(-1, 100) #[6040, 100]
     
-    print("top item id: ", top_item_id.shape)
     top_score = np.array(list(save_df["score"])).reshape(-1, 100)
     if args.norm == 'Y':
         top_score = normalize_matrix_by_row(top_score)
     weight = softmax(top_score / rand_tau, axis=1) #Y/b in quation of p(d|u)
-    print("weight: ", weight.shape) #[6040, 100]
-    # weight = softmax(np.power(top_score, rand_tau), axis=1)
-
-
+    
     indicator = torch.ones((E_target.shape[0], E_target.shape[1]))
 
     # put the exposure value into the selected positions
@@ -116,7 +105,7 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
             tmp_selected = np.array([int(j) for j in tmp_selected])
             E_system_tmp[i][tmp_selected] = exp_vector
         E_system += E_system_tmp
-    print('Loop complete')
+    
 
         # if sample_epoch < 10:
         #     E_system_tmp = torch.from_numpy(E_system_tmp)
@@ -128,15 +117,10 @@ def eval_function_stochas(save_df, user_label, item_label, matrix_label, args, r
         #     AGF_sp.append(AG_F_mask(E_system_tmp, E_target, E_collect, item_label, indicator))
 
     E_system /= sample_times
-    print("E_system: ", E_system.shape)
 
     E_system = torch.from_numpy(E_system)
-    print("E_target: ", E_target.shape)
-    print("E_collect: ", E_collect.shape)
-    print('Indicator: ', indicator.shape)
 
     IIF_all = II_F(E_system, E_target, E_collect, indicator)
-    
     GIF_all = GI_F_mask(E_system, E_target, E_collect, user_label, indicator)
     AIF_all = AI_F_mask(E_system, E_target, E_collect, indicator)
     IGF_all = IG_F_mask(E_system, E_target, E_collect, item_label, indicator)
@@ -153,14 +137,10 @@ def eval_function_static(save_df, user_label, item_label, matrix_label, args):
     # Calculate E_target with user browsing model
     E_target = load_user_browsing_model(args, matrix_label, num_rel)
 
-
-
     # construct E_collect (collectiion of exposures?), E_collect = random exposure
     E_collect = build_E_collect(E_target)
 
-
     top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
-    print("top item id: ", top_item_id.shape)
     top_score = np.array(list(save_df["score"])).reshape(-1, 100)
 
     # put the exposure value into the selected positions
@@ -185,8 +165,6 @@ def eval_function_static(save_df, user_label, item_label, matrix_label, args):
     IGF = IG_F_mask(E_system, E_target, E_collect, item_label, indicator)
     GGF = GG_F_mask(E_system, E_target, E_collect, user_label, item_label, indicator)[:3]
     AGF = AG_F_mask(E_system, E_target, E_collect, item_label, indicator)
-    # GG_target = GG_F_mask(E_system, E_target, user_label, item_label, indicator)[1]
-    # GG_system = GG_F_mask(E_system, E_target, user_label, item_label, indicator)[2]
 
     return IIF, GIF, IGF, GGF, AIF, AGF
 
@@ -207,7 +185,6 @@ def compute_stochas(args):
     save_IID, save_IGD, save_GID, save_GGD, save_AID, save_AGD = [], [], [], [], [], []
     save_IIR, save_IGR, save_GIR, save_GGR, save_AIR, save_AGR = [], [], [], [], [], []
 
-    # rand_tau_list = [1, 1e-1, 1e-2, 5e-2, 1e-3, 5e-3]
     len_tau = len(rand_tau_list)
 
     """evaluate on whole"""
@@ -321,8 +298,7 @@ def load_deterministic_ranker(args):
     save_df = save_df.rename(columns={0: "user", 2: "item", 4: "score"})
     if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
         save_df.user = save_df.user - 1
-    #print(save_df['item'])
-    #print(item_mapping)
+
     save_df['item'] = save_df['item'].map(item_mapping)
     save_df = save_df.dropna().reset_index(drop = True)
     save_df.drop(save_df.tail(len(save_df)%100).index, inplace = True)
@@ -352,18 +328,15 @@ def compute_exp_matrix(args):
         rand_tau = rand_tau_list[i]
         print("tau={}".format(rand_tau))
         # construct E_target
-        num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")
-        num_rel[num_rel == 0.0] = 1.0
+        num_rel = calc_num_rel(matrix_label)
 
-        exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float"))
-        E_target = exposure_rel / num_rel * matrix_label
+        # Calculate E_target with user browsing model
+        E_target = load_user_browsing_model(args, matrix_label, num_rel)
 
         # construct E_collect
         E_collect = np.ones((E_target.shape[0], E_target.shape[1])) * E_target.mean()
 
-        # construct E_system
-        user_size = E_target.shape[0]
-        print(save_df)
+
         top_item_id = np.array(list(save_df["item"])).reshape(-1, 100)
         top_score = np.array(list(save_df["score"])).reshape(-1, 100)
         # This was commented out at some point
@@ -394,9 +367,9 @@ def compute_exp_matrix(args):
             json.dump(np.array(GG_target_stochas).tolist(), fp)
         with open("./save_exp/{}/GG_MS_{}_{}.json".format(args.data, rand_tau, args.model), "w") as fp:
             json.dump(np.array(GG_system_stochas).tolist(), fp)
+
     # construct E_target
-    num_rel = matrix_label.sum(1, keepdims=True).reshape(-1, 1).astype("float")
-    num_rel[num_rel == 0.0] = 1.0
+    num_rel = calc_num_rel(matrix_label)
 
     exposure_rel = (args.gamma / (1.0 - args.gamma)) * (1.0 - np.power(args.gamma, num_rel).astype("float"))
     E_target = exposure_rel / num_rel * matrix_label
@@ -445,61 +418,63 @@ if __name__ == '__main__':
     args.device = torch.device('cuda:' + str(args.gpu_id) if torch.cuda.is_available() else 'cpu')
     print("device:", args.device)
 
-    """read data and attribute label"""
+    """read data and assign attribute index"""
     df, item_mapping, matrix_label, user_size, item_size = preprocessing(args)
-    # Obtain attribute indices
+    
+    # Obtain group indices for Movielens dataset
     if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
         index_F, index_M, index_gender, index_age, index_genre, index_pop, age_matrix, pop_mask, genre_matrix \
             = obtain_group_index(df, args)
-
-        # Build matrix with gender information
-        gender_matrix = torch.zeros(2, len(index_F) + len(index_M)) #[2, #females + #males] , 1st row for F 2nd for M
-        for ind in index_F:
-            gender_matrix[0][ind] = 1
-        for ind in index_M:
-            gender_matrix[1][ind] = 1
-        print("gender_matrix:", gender_matrix.shape)
-        print("genre_matrix:", genre_matrix.shape)
-        # print("gender_matrix:", gender_matrix.sum(1))
-        # print("genre_matrix:", genre_matrix.sum(1))
-        gender_num = len(index_gender)
-        genre_num = len(index_genre)
-        print("gender_num:", gender_num)
-        print("genre_num:", genre_num)
-
+        
+        # Set user group lable:
         if args.age == 'Y':
             user_label = age_matrix #[7,6040]
         else:
+            # Build matrix with gender information
+            gender_matrix = torch.zeros(2, len(index_F) + len(index_M)) #[2, #females + #males] , 1st row for F 2nd for M
+            for ind in index_F:
+                gender_matrix[0][ind] = 1
+            for ind in index_M:
+                gender_matrix[1][ind] = 1
+    
             user_label = gender_matrix  # .to(args.device) [2,6040]
-            
+
+        # Set item group lable
         item_label = genre_matrix  # .to(args.device) [18, 3706]
 
+    # Obtain group indices for LibraryThing dataset
     elif (args.data == 'lt'):
         index_engagement, index_helpful, engagement_matrix, helpful_matrix = obtain_group_index_tl(df, args) 
         user_label = helpful_matrix 
         item_label = engagement_matrix
 
-    print("user_label:", user_label.shape)
-    print("item_label:", item_label.shape)
-    print("item_label:", item_label[0])
-
-    # matrix_label = torch.from_numpy(matrix_label.todense()).float().to(args.device)
     matrix_label = np.array(matrix_label.todense()) #rating matrix for matrix factorization, user-item relevance matrix Y [6040, 3706]
-    print("matrix_label:", matrix_label.shape, type(matrix_label))
 
-    #??
+    # Print set-up statics
+    print('-------- Experiment Configuration --------')
     print("norm:", args.norm)
     print("coll:", args.coll)
     print("model:", args.model)
+    print('conduct:', args.conduct)
+    print('-------------------------------')
 
+    # Run computation according to conduct nide
     if args.conduct == 'sh':
         compute_stochas(args)
     elif args.conduct == 'st':
         compute_static(args)
-    #the line below is commented out in og repo
-    compute_exp_matrix(args)
-    print("_________________________________")
+
+    # Compute Expectation matrix
+    #compute_exp_matrix(args)
+
     stop = time.time()
     print('Time elapsed: ', np.round(stop-start, 4), ' s')
-    f = open("Experiment_times.txt", "w")
-    f.write(args.model + " " + args.age + " " + args.conduct + " " + str(np.round(stop-start, 4)) + " s  \n")
+    
+    
+    # Write experiment GPU time to file
+    with open("Experiment_times.txt", "w") as f:
+        f.write(args.model + " " + args.age + " " + args.conduct + " " + str(np.round(stop-start, 4)) + " s  \n")
+    
+    print('---------------------------------------------')
+    print("Experiment completed successfully")
+    print('---------------------------------------------')

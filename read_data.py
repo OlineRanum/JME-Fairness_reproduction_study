@@ -54,9 +54,9 @@ class MovieLens100k(DatasetLoader):
 
 
 class LibraryThing(DatasetLoader):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, ndatapoints):
         self.path = os.path.join(data_dir, 'reviews.txt')
-        self.ndatapoints = 5000
+        self.ndatapoints = ndatapoints
     
     def load(self):
         df = pd.DataFrame(columns = ['item', 'flags', 'rate', 'nhelpful',  'user', 'commentlength'], 
