@@ -56,43 +56,32 @@ class MovieLens100k(DatasetLoader):
 class LibraryThing(DatasetLoader):
     def __init__(self, data_dir, ndatapoints):
         self.path = os.path.join(data_dir, 'reviews.txt')
-        self.ndatapoints = ndatapoints
+        self.ndatapoints = 100
     
     def load(self):
-        df = pd.DataFrame(columns = ['item', 'flags', 'rate', 'nhelpful',  'user', 'commentlength'], 
-                   index = np.arange(1, self.ndatapoints, 1))
+        df = pd.DataFrame([], columns = ['comment','nhelpful', 'unixtime', 'work', 'flags', 'user', 'stars', 'time'])
         file = open(self.path, 'r')
         lines = file.readlines()[1:]
 
+        extracted_data = []
         linecount = 0
         for line in lines:
-            try:
-                try:
-                    line = line.split('=')
-                    line = line[1]
-                    comment = line.split(", 'nhelpful':")[0]
-                    df['commentlength'].iloc[linecount] = len(comment[14:-1].split(" "))
-                    metadata = line.split(", 'nhelpful':")[1]
-                    #df['comment'].iloc[linecount] = comment[14:-1]
-                    metadata = metadata.split(':')    
-                    df['nhelpful'].iloc[linecount] = float(metadata[0].split(',')[0][1:])
-                    df['item'].iloc[linecount] = int(metadata[2].split(',')[0][2:-1])
-                    df['flags'].iloc[linecount] =  metadata[3].split(',')[0]
-                    df['user'].iloc[linecount] = metadata[4].split(',')[0][2:-1]
-                    df['rate'].iloc[linecount] = float(metadata[5].split(',')[0])
-                    linecount +=1
-                    if linecount > self.ndatapoints:
-                        break
-                except ValueError:
-                    pass
-            except IndexError:
-                pass
+            line = line.split('] = ')
+            line = line[1]
+            reviews = eval(line)
+            linecount +=1
+            extracted_data.append([reviews.get('comment', ''), reviews.get('nhelpful', '0'), reviews.get('unixtime', '0'), reviews.get('work', ''), reviews.get('flags', ''), reviews.get('user', ''), reviews.get('stars', '0'), reviews.get('time', '')])
         
-        # Assign ordered unique numerical index to each username
-        df, user_mapping = convert_unique_idx(df, 'user')
-        # Assign ordered unique numerical index to each item
-        df, item_mapping = convert_unique_idx(df, 'item')
+            if linecount > self.ndatapoints:
+                    break
 
+        df = pd.DataFrame(extracted_data, columns=['comment', 'nhelpful', 'unixtime', 'work', 'flags', 'user', 'stars', 'time'])
+        df['commentlength'] = df['comment'].str.split().apply(len)
+        df.rename(columns = {'comment':'item', 'stars':'rate'}, inplace = True)
+
+        
+        df, user_mapping = convert_unique_idx(df, 'user')
+        df, item_mapping = convert_unique_idx(df, 'item')
         return df, item_mapping
 
 
@@ -139,6 +128,7 @@ class MovieLens1M(DatasetLoader):
         
         # O: Reset index of users to zero 
         df.user = df.user - 1
+
 
         # O: Reassign movie indices
         df, item_mapping = convert_unique_idx(df, 'item')
@@ -493,7 +483,7 @@ def preprocessing(args):
     # O: (user, item), rate
     matrix_label = scipy.sparse.csr_matrix(
         (np.array(df_rate['rate']), (np.array(df_rate['user']), np.array(df_rate['item']))))
-    
+   
     return df, item_mapping, matrix_label, user_size, item_size
 
 
@@ -516,8 +506,7 @@ def obtain_group_index(df, args):
         index_genre, genre_mask = genre_ml100k_index(df)
     elif args.data == 'ml-1m':
         index_genre, genre_mask = genre_ml1m_index(df)
-    #print('index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask')
-    #print(np.array(index_F).shape, np.array(index_M).shape, np.array(index_gender).shape, np.array(index_age).shape, np.array(index_genre).shape, np.array(index_pop).shape, np.array(age_mask).shape, np.array(pop_mask).shape, np.array(genre_mask).shape)
+
     return index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask
 
 def obtain_group_index_tl(df, args):
@@ -525,15 +514,14 @@ def obtain_group_index_tl(df, args):
     #matrices of where in the df there is an index for each group
     index_engagement, engagement_mask = engagement_index(df)
     index_helpful, helpful_mask = age_index(df, user_size, args.data)
-    #print('index_engagement, index_helpful, engagement_mask, helpful_mask')
-    #print(np.array(index_engagement).shape, np.array(index_helpful).shape, np.array(engagement_mask).shape, np.array(helpful_mask).shape)
+
     return index_engagement, index_helpful, engagement_mask, helpful_mask
 
 
 
 def parser_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, default="ml-1m")
+    parser.add_argument("--data", type=str, default="lt")
     return parser.parse_args()
 
 
@@ -544,4 +532,5 @@ if __name__ == '__main__':
         index_engagement, index_helpful, engagement_mask, helpful_mask = obtain_group_index_tl(df, args)
     else:
         index_F, index_M, index_gender, index_age, index_genre, index_pop, age_mask, pop_mask, genre_mask = obtain_group_index(df, args)
-    print("matrix_label:", matrix_label.todense().shape)
+    # print("matrix_label:", matrix_label.todense().shape)
+    print(df.head())
