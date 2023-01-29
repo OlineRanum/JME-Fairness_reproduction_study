@@ -1,15 +1,3 @@
-# Libraries
-*.lvlibp
-*.llb
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
 
 
 *.json
@@ -25,11 +13,9 @@
 .cache/
 
 
-*.gz
 
 # Folders
 data/
-saved_model/
 save_exp/
 __pycache__/
 *.pyc
