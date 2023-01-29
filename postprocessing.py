@@ -15,7 +15,7 @@ x_values = ['8', '4', '2', '1', '1/2', '1/4', '1/8', 'ST']
 group = 'Occupation'
 
 
-def load_data(model, Experiment_nr, group, metric_list = metric_list, apply_min_max = False, max_ = 0, min_ = 0):
+def load_data(model, Experiment_nr, group, metric_list = metric_list, apply_min_max = False, max_ = 0, min_ = 0, fig4 = False):
     
     df = pd.DataFrame(columns = column_names)
     df["II"] = [[], [], []]
@@ -35,6 +35,8 @@ def load_data(model, Experiment_nr, group, metric_list = metric_list, apply_min_
                 static  = json.load(open('./save_exp/lt/Experiment_' + str(Experiment_nr) + '_' + model + '/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
             else:
                 print('Unknown group')
+            if fig4:
+                df[column_names[metric]][component] = metrics
             metrics.extend(static)
             if apply_min_max == True:
                 try:
@@ -173,3 +175,51 @@ figure_2(BPRMF)
 # figure_2(BPRMF_new)
 # figure_3([BPRMF_new])
 figure_3(all_models_norm)
+
+def figure_4(models, age_group=False):
+    """ Reproduce Figure 4 - Kendall correlation heatmap
+    """
+    df = pd.DataFrame()
+    for model in models:
+        df = df.append(model)
+
+    for column in column_names:
+        df = df.explode(column_names)
+
+    main_metric = df.loc['F'].astype(float)
+    disparity = df.loc['D'].astype(float)
+    relevance = df.loc['R'].astype(float)
+
+    main_corr = main_metric.corr(method='kendall')
+    d_corr = disparity.corr(method='kendall')
+    r_corr = relevance.corr(method='kendall')
+
+    j = 0
+    for i in [main_corr, d_corr, r_corr]:
+        sns.set(font_scale=1.3)
+        plot = sns.heatmap(i, cbar=False, annot=True, cmap="YlGnBu", fmt='.3g')
+        if age_group:
+            plt.savefig('Figure_age' + str(j))
+            # plt.show()
+            plt.clf()
+        else:
+            plt.savefig('Figure_gender' + str(j))
+            # plt.show()
+            plt.clf()
+        j += 1
+
+
+gender_data = [] 
+age_data = []
+exp = [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22]
+mod_names = ['BPRMF', 'LDA', 'PureSVD', 'SLIM', 'WRMF', 'CHI2', 'HT', 'KLD', 'LMWI', 'LMWU', 'SVD', 'NNI', 'NNU', 'PLSA', 'Random', 'RM1', 'RM2', 'RSV', 'RW', 'UIR'] 
+
+for i, model_name in enumerate(mod_names):
+    gender_load = load_data(model_name, exp[i], 'Gender', fig4=True)
+    gender_data.append(gender_load)
+
+    age_load = load_data(model_name, exp[i], 'Age', fig4=True)
+    age_data.append(age_load)
+
+fig4_gender = figure_4(gender_data)
+fig4_age = figure_4(age_data, age_group=True)
