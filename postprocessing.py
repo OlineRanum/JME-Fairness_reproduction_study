@@ -24,6 +24,9 @@ def load_data(model, Experiment_nr, group, metric_list = metric_list, apply_min_
             if group == 'Age':
                 metrics = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '_Y.json', 'r'))
                 static  = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static_Y.json', 'r'))
+            elif group == 'Occupation':
+                metrics = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
+                static  = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
             elif group == 'Gender':
                 metrics = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
                 static  = json.load(open('./save_exp/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
@@ -139,12 +142,12 @@ def figure_3(models, model_name = ['BPRMF', 'LDA', 'PureSVD', 'SLIM', 'WRMF'], c
     plt.savefig('Figure_3.png', bbox_inches = 'tight')
 
 # Load unnormalized data
-"""
+
 BPRMF = load_data('BPRMF', 1, group)
-LDA = load_data('LDA', 2, group)
-PureSVD = load_data('PureSVD', 3, group)
-SLIM = load_data('SLIM', 4, group)
-WRMF = load_data('WRMF', 5, group)
+LDA = load_data('LDA', 3, group)
+PureSVD = load_data('PureSVD', 4, group)
+SLIM = load_data('SLIM', 5, group)
+WRMF = load_data('WRMF', 6, group)
 all_models = [BPRMF, LDA, PureSVD, SLIM, WRMF]
 
 # Find global min and max across all models per metric per component
@@ -153,21 +156,20 @@ global_min, global_max = find_global_min_max(all_models)
 
 # Normalize data
 BPRMF = load_data('BPRMF', 1, group, apply_min_max=True, max_ = global_max, min_ = global_min)
-LDA = load_data('LDA', 2, group, apply_min_max=True, max_ = global_max, min_ = global_min)
-PureSVD = load_data('PureSVD', 3, group, apply_min_max=True, max_ = global_max, min_ = global_min)
-SLIM = load_data('SLIM', 4, group, apply_min_max=True, max_ = global_max, min_ = global_min)
-WRMF = load_data('WRMF', 5, group, apply_min_max=True, max_ = global_max, min_ = global_min)
+LDA = load_data('LDA', 3, group, apply_min_max=True, max_ = global_max, min_ = global_min)
+PureSVD = load_data('PureSVD', 4, group, apply_min_max=True, max_ = global_max, min_ = global_min)
+SLIM = load_data('SLIM', 5, group, apply_min_max=True, max_ = global_max, min_ = global_min)
+WRMF = load_data('WRMF', 6, group, apply_min_max=True, max_ = global_max, min_ = global_min)
 all_models_norm = [BPRMF, LDA, PureSVD, SLIM, WRMF]
-"""
-'''
-BPRMF_mm = load_data('BPRMF', 1, group, apply_min_max= True)
+
+#BPRMF_mm = load_data('BPRMF', 1, group, apply_min_max= True)
 #figure_2(BPRMF_mm)
 
-BPRMF_mm = load_data('BPRMF', 1, 'lt', apply_min_max= True)
-figure_2(BPRMF_mm)
-figure_3([BPRMF_mm])
-'''
-BPRMF_new = load_data('BPRMF', 1, 'lt', apply_min_max= True)
-figure_2(BPRMF_new)
-figure_3([BPRMF_new])
-#figure_3(all_models_norm)
+# BPRMF_mm = load_data('BPRMF', 1, 'lt', apply_min_max= True)
+figure_2(BPRMF)
+# figure_3([BPRMF_mm])
+
+# BPRMF_new = load_data('BPRMF', 1, 'lt', apply_min_max= True)
+# figure_2(BPRMF_new)
+# figure_3([BPRMF_new])
+figure_3(all_models_norm)
