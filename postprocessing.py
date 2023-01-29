@@ -12,7 +12,7 @@ sns.set(font_scale=1.5)
 metric_list = [['IIF', 'IID', 'IIR'], ['IGF','IGD','IGR'],  ['GIF','GID','GIR'],  ['GGF','GGD','GGR'],  ['AIF','AID','AIR'],  ['AGF','AGD','AGR']]
 column_names = ["II", "IG", "GI", "GG", "AI", "AG"]
 x_values = ['8', '4', '2', '1', '1/2', '1/4', '1/8', 'ST']
-group = 'Age'
+group = 'Occupation'
 
 
 def load_data(model, Experiment_nr, group, metric_list = metric_list, apply_min_max = False, max_ = 0, min_ = 0):
