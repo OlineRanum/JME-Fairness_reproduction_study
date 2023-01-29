@@ -16,7 +16,8 @@ group = 'Occupation'
 
 
 def load_data(model, Experiment_nr, group, metric_list = metric_list, apply_min_max = False, max_ = 0, min_ = 0, fig4 = False):
-    
+    """ Load experiments for plotting
+    """
     df = pd.DataFrame(columns = column_names)
     df["II"] = [[], [], []]
     for metric in range(len(metric_list)):
@@ -56,19 +57,21 @@ def load_data(model, Experiment_nr, group, metric_list = metric_list, apply_min_
 
 
 def AUC_trap(x, y, minval):
-    area = 0
+    """ Trapezoidal Rule for calculating Area under curve
+    Input:
+        x: x-data
+        y: y-data
+        minval: set value for which to integrate upto
+    
+    Output:
+        Area: area under curve
+    """
+    AUC = 0
     
     for i in range(len(x)-1):
         if x[i+1] <= minval:
-            area += 0.5*(y[i+1]+ y[i])*(x[i+1] - x[i])
-    return area 
-
-def AUC(x, y, minval):
-    area = 0
-    for i in range(len(x)-1):
-        if x[i+1] <= minval:
-            area += (x[i+1]- x[i])*y[i+1] - 0.5*(x[i+1]- x[i])*(y[i+1]-y[i])
-    return area 
+            AUC += 0.5*(y[i+1]+ y[i])*(x[i+1] - x[i])
+    return AUC 
 
 def find_global_min_max(models):
     global_min = np.ones((3, 6))*100
@@ -135,7 +138,7 @@ def figure_3(models, model_name = ['BPRMF', 'LDA', 'PureSVD', 'SLIM', 'WRMF'], c
             axs[metric].plot(model[column_names[metric]][1], model[column_names[metric]][2], '--*', label = model_name[i])
             axs[metric].set_xlabel(column_names[metric] + '-D') 
             axs[metric].set_ylabel(column_names[metric] + '-R')
-            AUC_list.append(np.round(AUC(model[column_names[metric]][1], model[column_names[metric]][2], x_min_vals[metric]), 5))
+            AUC_list.append(np.round(AUC_trap(model[column_names[metric]][1], model[column_names[metric]][2], x_min_vals[metric]), 5))
 
         # Print AUC table
         print(model_name[i], ' & ' , AUC_list[0], ' & ', AUC_list[1], ' & ', AUC_list[2], ' & ', AUC_list[3], ' & ', AUC_list[4], ' & ',AUC_list[5], ' \\\\ ')

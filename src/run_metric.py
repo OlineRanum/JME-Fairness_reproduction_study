@@ -285,6 +285,9 @@ def compute_static(args):
                 json.dump(dict[key], fp)
 
 def load_deterministic_ranker(args):
+    """ Load pretrained deterministic ranker 
+    """
+    
     if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
         save_df = pd.read_csv('src/models/ml/run-{}-ml-1M-fold1.txt.gz'.format(args.model),
                           compression='gzip', header=None, sep='\t', quotechar='"', usecols=[0, 2, 4])
@@ -452,12 +455,12 @@ if __name__ == '__main__':
     matrix_label = np.array(matrix_label.todense()) #rating matrix for matrix factorization, user-item relevance matrix Y [6040, 3706]
     print('mat lab', matrix_label.shape)
     # Print set-up statics
-    print('-------- Experiment Configuration --------')
+    print('-------- Configuration of Experiment --------')
     print("norm:", args.norm)
     print("coll:", args.coll)
     print("model:", args.model)
     print('conduct:', args.conduct)
-    print('-------------------------------')
+    print('----------------------------------------------')
 
     # Run computation according to conduct nide
     if args.conduct == 'sh':
@@ -473,7 +476,7 @@ if __name__ == '__main__':
     
     
     # Write experiment GPU time to file
-    with open("Experiment_times.txt", "w") as f:
+    with open("Outputs/Experiment_times.txt", "a") as f:
         f.write(args.model + " " + args.age + " " + args.conduct + " " + str(np.round(stop-start, 4)) + " s  \n")
     
     print('---------------------------------------------')
