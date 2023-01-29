@@ -2,7 +2,11 @@
 
 This repository reproduces the paper: [Joint Multisided Exposure Fairness for Recommendation](https://arxiv.org/abs/2205.00048) (SIGIR 2022).
 
-## Requirements
+## Installation
+
+``` Installing Repo
+git clone https://github.com/OlineRanum/FACT.git
+```
 
 To install requirements in anaconda:
 
@@ -12,6 +16,12 @@ conda env create -f fact.yml
 ```activate
 conda activate fact
 ```
+
+## Usage Example
+
+### To run a single experiment with default setting
+
+### To run all experiments associated with the reproduction study 
 
 ## Code Overview
 ### Folder
