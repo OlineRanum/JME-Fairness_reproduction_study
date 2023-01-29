@@ -6,32 +6,13 @@ from collections import Counter
 from copy import deepcopy
 import argparse
 import time
+import json
+from tqdm import tqdm, trange
 from argparse import ArgumentParser
-# from . import read_data
 from utils.read_data import preprocessing, obtain_group_index, obtain_group_index_tl
 from scipy.special import softmax
-from tqdm import tqdm, trange
 from utils.Disparity_Metrics import *
-import json
-
-
-def parser_args():
-    parser = ArgumentParser(description="JMEF")
-    parser.add_argument('--data', type=str, default='ml-1m', choices=['ml-1m', 'ml-100k', 'lt'],
-                        help="File path for data")
-    parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--seed', type=int, default=0, help="Seed (For reproducability)")
-    parser.add_argument('--model', type=str, default='Pop')
-    parser.add_argument('--gamma', type=float, default=0.8, help="patience factor")
-    parser.add_argument('--temp', type=float, default=0.1, help="temperature. how soft the ranks to be")
-    parser.add_argument('--s_ep', type=int, default=100)
-    parser.add_argument('--r_ep', type=int, default=1)
-    parser.add_argument('--norm', type=str, default='N')
-    parser.add_argument('--coll', type=str, default='Y')
-    parser.add_argument('--age', type=str, default='N')
-    parser.add_argument('--ndatapoints', type=int, default= 5000)
-    parser.add_argument('--conduct', type=str, default='sh')
-    return parser.parse_args()
+from utils.parser import parser_args
 
 
 def normalize_matrix_by_row(matrix):
@@ -476,7 +457,7 @@ if __name__ == '__main__':
     
     
     # Write experiment GPU time to file
-    with open("Outputs/Experiment_times.txt", "a") as f:
+    with open("src/outputs/Experiment_times.txt", "a") as f:
         f.write(args.model + " " + args.age + " " + args.conduct + " " + str(np.round(stop-start, 4)) + " s  \n")
     
     print('---------------------------------------------')
