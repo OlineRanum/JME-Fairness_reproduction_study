@@ -202,7 +202,7 @@ def figure_3(models, model_name, column_names):
 
 
 def figure_4(models, group, column_names):
-    """ Reproduce Figure 4 - Kendall correlation heatmap
+    """ Reproduce Figure 4 - Kendall rank correlation heatmap
     """
     df = pd.DataFrame()
     for model in models:
