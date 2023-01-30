@@ -7,17 +7,10 @@ This repository reproduces the paper [Joint Multisided Exposure Fairness for Rec
 
 ## Installation
 
-``` Installing Repo
+``` Installing and configuring repo
 git clone https://github.com/OlineRanum/FACT.git
-```
-
-To install requirements in anaconda:
-
-```setup
-conda env create -f fact.yml
-```
-```activate
-conda activate fact
+cd FACT
+bash src/setup.sh
 ```
 
 ## Usage Example
