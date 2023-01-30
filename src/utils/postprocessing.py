@@ -59,13 +59,13 @@ def parser_args():
     parser.add_argument(
         '--output_dir',
         type=str,
-        default='../outputs/figures/',
+        default='./src/outputs/figures/',
         help='Path to output directory'
     )
 
     return parser.parse_args()
 
-    
+
 
 def load_data(model, Experiment_nr, group, metric_list, apply_min_max = False, max_ = 0, min_ = 0, fig4 = False):
     """ Load experiments for plotting
@@ -75,17 +75,17 @@ def load_data(model, Experiment_nr, group, metric_list, apply_min_max = False, m
     for metric in range(len(metric_list)):
         for component in range(len(metric_list[metric])):
             if group == 'Age':
-                metrics = json.load(open('../outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '_Y.json', 'r'))
-                static  = json.load(open('../outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static_Y.json', 'r'))
+                metrics = json.load(open('./src/outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '_Y.json', 'r'))
+                static  = json.load(open('./src/outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static_Y.json', 'r'))
             elif group == 'Occupation':
-                metrics = json.load(open('../outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
-                static  = json.load(open('../outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
+                metrics = json.load(open('./src/outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
+                static  = json.load(open('./src/outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
             elif group == 'Gender':
-                metrics = json.load(open('../outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
-                static  = json.load(open('../outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
+                metrics = json.load(open('./src/outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
+                static  = json.load(open('./src/outputs/ml-1m/Experiment_' + str(Experiment_nr) + '_' + model + '/' + group +'/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
             elif group == 'lt':
-                metrics = json.load(open('../outputs/lt/Experiment_' + str(Experiment_nr) + '_' + model + '/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
-                static  = json.load(open('../outputs/lt/Experiment_' + str(Experiment_nr) + '_' + model + '/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
+                metrics = json.load(open('./src/outputs/lt/Experiment_' + str(Experiment_nr) + '_' + model + '/' + metric_list[metric][component]+ '_all_' + model + '.json', 'r'))
+                static  = json.load(open('./src/outputs/lt/Experiment_' + str(Experiment_nr) + '_' + model + '/' + metric_list[metric][component] +'_all_' + model + '_static.json', 'r'))
             else:
                 print('Unknown group')
 
@@ -206,7 +206,7 @@ def figure_4(models, group, column_names):
     """
     df = pd.DataFrame()
     for model in models:
-        df = df.append(model)
+        df = pd.concat((df, model), axis=0, join='outer')
 
     for column in column_names:
         df = df.explode(column_names)
