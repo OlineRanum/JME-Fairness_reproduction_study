@@ -29,7 +29,7 @@ class LibraryThing(DatasetLoader):
             linecount +=1
             extracted_data.append([reviews.get('comment', ''), reviews.get('nhelpful', '0'), reviews.get('unixtime', '0'), reviews.get('work', ''), reviews.get('flags', ''), reviews.get('user', ''), reviews.get('stars', '0'), reviews.get('time', '')])
         
-            if linecount > self.ndatapoints:
+            if linecount > self.ndatapoints - 1:
                     break
 
         df = pd.DataFrame(extracted_data, columns=['comment', 'nhelpful', 'unixtime', 'work', 'flags', 'user', 'stars', 'time'])

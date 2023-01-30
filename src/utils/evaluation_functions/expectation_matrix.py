@@ -8,7 +8,7 @@ from evaluation_functions.fairness_metrics import *
 from evaluation_functions.calculation_utils import calc_num_rel, calc_E_target, normalize_matrix_by_row
 from evaluation_functions.load_ranking_models import load_deterministic_ranker
 
-def compute_exp_matrix(args, matrix_label, item_mapping):
+def compute_exp_matrix(args, matrix_label, item_mapping, user_label, item_label):
     save_df = load_deterministic_ranker(args, item_mapping)
 
     if args.model == 'LDA':
