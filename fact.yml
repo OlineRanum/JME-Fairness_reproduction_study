@@ -233,4 +233,5 @@ dependencies:
     - werkzeug==2.2.2
     - widgetsnbextension==4.0.3
     - yarl==1.8.1
+    - gdown
 prefix: C:\Users\chrysa\miniconda3\envs\dl2022
