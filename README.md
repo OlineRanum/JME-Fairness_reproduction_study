@@ -31,18 +31,39 @@ The [`Disparity_Metrics.py`](./Disparity_Metrics.py) contains the implementation
 The [`run_metric.py`](./run_metric.py) outputs the output values for different JME-Fairness metrics.
 The [`postprocessing.py`](./postprocessing.py) produces all the results for the JME-fairness metrics analysis experiments.
 
+
+
+
 ## Produce the toy example experiment results
 ```
 python Disparity_Metrics.py
 ```
-## Produce the metric analysis experiments
+## Reproduce all plots in our reproduction study
 ```
-python postprocessing.py
+bash experiments/run_files/plot_reproduction_results.sh
 ```
+## Rerun all metric calculations on MovieLens1M dataset
+NB! Expected runtime on RTX 3070 GPU is 13h - this will estimate the fairness metrics across all 21 pretrained models to build the kendal rank correlations for the MovieLens1M dataset. 
+
+```
+bash experiments/run_files/run_metrics_movielens.sh
+```
+
+## Rerun all metric calculations on LibraryThing dataset
+NB! Expected runtime on RTX 3070 GPU is 15h - this will estimate the fairness metrics across all 21 pretrained models to build the kendal rank correlations for the LibraryThing dataset. 
+
+```
+bash experiments/run_files/run_metrics_movielens.sh
+```
+
 ## Obtain the values for JME-fairness metrics
 ```
 python run_metric.py
 ```
+
+## Acknowledgements
+
+
 
 ## Citation of the original paper
 ```
