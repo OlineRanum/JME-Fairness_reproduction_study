@@ -2,7 +2,7 @@
 
 This repository reproduces the paper [Joint Multisided Exposure Fairness for Recommendation](https://arxiv.org/abs/2205.00048) (SIGIR 2022) as part of the [ML Reproducibility Challenge 2022](https://paperswithcode.com/rc2022).
 
-![Title](Figures/Figure_3_Age.png)
+![Title](Figures/Figure_5.png)
 *caption*
 
 ## Installation
