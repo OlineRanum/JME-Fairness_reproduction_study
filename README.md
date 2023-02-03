@@ -10,7 +10,7 @@ This repository reproduces the paper [Joint Multisided Exposure Fairness for Rec
 ``` Installing and configuring repo
 git clone https://github.com/OlineRanum/FACT.git
 cd FACT
-bash src/setup.sh
+bash env/setup.sh
 ```
 
 ## How to use the code
@@ -50,22 +50,26 @@ bash experiments/run_files/run_metrics_librarything.sh
 
 ## Train Bert4Rec
 ```
-python run_metric.py
+bash 
 ```
 
 
 ## Directory Overview
 ### Folder
+The [`env`](./env) contains the environment to run this codebase and a bash script _setup.sh_ to download the LibraryTh
+ing dataset and install/activate the environment. 
+
+The [`experiments`](./experiments) contains the run files with all the bash scripts to reproduce all experiments associated with the reproduction study. 
+
+The [`Figures`](./Figures) contains the coverpicture.
+
+The [`src`](./src) contains the source code of the project. 
+
+## Datasets 
+
 The [`data`](./data) contains the datasets we used from [here](https://grouplens.org/datasets/movielens/).
 
 The [`saved_model`](./saved_model) contains the pre-trained model from [here](https://github.com/dvalcarce/evalMetrics).
-
-### File
-The [`read_data.py`](./read_data.py) contains the data reading and preprocessing.
-The [`Disparity_Metrics.py`](./Disparity_Metrics.py) contains the implementation of the proposed JME-Fairness metrics and outputs results for the toy example of job recommendation systems experiment.
-The [`run_metric.py`](./run_metric.py) outputs the output values for different JME-Fairness metrics.
-The [`postprocessing.py`](./postprocessing.py) produces all the results for the JME-fairness metrics analysis experiments.
-
 
 
 
