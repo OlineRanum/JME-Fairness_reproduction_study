@@ -2,7 +2,7 @@
 
 This repository reproduces the paper [Joint Multisided Exposure Fairness for Recommendation](https://arxiv.org/abs/2205.00048) (SIGIR 2022) as part of the [ML Reproducibility Challenge 2022](https://paperswithcode.com/rc2022).
 
-![Title](Figures/Figure_3_Age.png)
+![Title](Figures/Figure_5.png)
 *caption*
 
 ## Installation
@@ -56,7 +56,7 @@ NB! Expected runtime on RTX 3070 GPU is 15h - this will estimate the fairness me
 bash experiments/run_files/run_metrics_movielens.sh
 ```
 
-## Obtain the values for JME-fairness metrics
+## Train Bert4Rec
 ```
 python run_metric.py
 ```
