@@ -19,7 +19,7 @@ with open("experiments/run_files/run_metrics_librarything.sh", "w") as f:
         f.write('mkdir src/outputs/lt/Experiment_' + str(i+1) +'_' + models[i] +'\n')
         f.write('python3 src/run_metric.py --data lt --model '+ models[i]+' --conduct sh --ndatapoints 15000\n')
         f.write('python3 src/run_metric.py --data lt --model '+ models[i]+' --conduct st --ndatapoints 15000\n')
-        f.write('mv src/outputs/lt/*.json src/outputs/Experiment_' + str(i+1) +'_' + models[i] +'\n')
+        f.write('mv src/outputs/lt/*.json src/outputs/lt/Experiment_' + str(i+1) +'_' + models[i] +'\n')
 
 
 with open("experiments/run_files/plot_experiments_detrank.sh", 'w') as f:
