@@ -55,7 +55,7 @@ if __name__ == '__main__':
         user_label = helpful_matrix 
         item_label = engagement_matrix
 
-
+    print(matrix_label.shape[0])
     matrix_label = np.array(matrix_label.todense()) #rating matrix for matrix factorization, user-item relevance matrix Y [6040, 3706]
     print('mat lab', matrix_label.shape)
     # Print set-up statics

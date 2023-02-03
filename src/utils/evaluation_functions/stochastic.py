@@ -56,7 +56,7 @@ def compute_stochas(args, matrix_label, item_mapping, user_label, item_label):
         args.norm = 'Y'
     
     # List of beta_values
-    rand_tau_list = [8, 4, 2, 1, 0.5, 0.25, 0.125] # different values for beta
+    rand_tau_list = [8] #, 4, 2, 1, 0.5, 0.25, 0.125] # different values for beta
     
     save_IIF, save_IGF, save_GIF, save_GGF, save_AIF, save_AGF = [], [], [], [], [], []
     save_IID, save_IGD, save_GID, save_GGD, save_AID, save_AGD = [], [], [], [], [], []

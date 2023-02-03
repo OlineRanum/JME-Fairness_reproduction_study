@@ -1,21 +1,14 @@
-
-
-*.json
-
-
-
+# Private overview files
 *.ods
-
+*.dat
+*.png
 
 # Metadata
 *.aliases
 *.lvlps
 .cache/
 
-
-
 # Folders
-data/
 save_exp/
 __pycache__/
 *.pyc

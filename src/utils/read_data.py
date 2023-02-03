@@ -46,9 +46,10 @@ def preprocessing(args):
     df_rate['rate'] = 1
 
     # Store as sparse data
+
     matrix_label = scipy.sparse.csr_matrix(
         (np.array(df_rate['rate']), (np.array(df_rate['user']), np.array(df_rate['item']))))
-   
+    
     return df, item_mapping, matrix_label, user_size, item_size
 
 

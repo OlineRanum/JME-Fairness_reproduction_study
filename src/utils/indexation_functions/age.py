@@ -41,21 +41,25 @@ def user_index_7groups(df, user_size, data):
 
     index_age = [[], [], [], [], [], [], []]
     
-    for i in range(0, len(dic)):
-        if 0 == dic[i]:
-            index_age[0].append(i)
-        elif 1 == dic[i]:
-            index_age[1].append(i)
-        elif 2 == dic[i]:
-            index_age[2].append(i)
-        elif 3 == dic[i]:
-            index_age[3].append(i)
-        elif 4 == dic[i]:
-            index_age[4].append(i)
-        elif 5 == dic[i]:
-            index_age[5].append(i)
-        elif 6 == dic[i]:
-            index_age[6].append(i)
+    for i in range(0, len(np.max(dic.keys()))):
+        try: 
+            if 0 == dic[i]:
+                    index_age[0].append(i)
+            elif 1 == dic[i]:
+                index_age[1].append(i)
+            elif 2 == dic[i]:
+                index_age[2].append(i)
+            elif 3 == dic[i]:
+                index_age[3].append(i)
+            elif 4 == dic[i]:
+                index_age[4].append(i)
+            elif 5 == dic[i]:
+                index_age[5].append(i)
+            elif 6 == dic[i]:
+                index_age[6].append(i)
+        except KeyError:
+            pass
+
 
     for i in range(len(index_age)):
         index_age[i] = np.array(index_age[i])

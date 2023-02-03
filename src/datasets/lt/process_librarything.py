@@ -1,6 +1,6 @@
-import os 
 import pandas as pd 
 import numpy as np
+import os 
 
 class DatasetLoader(object):
     def load(self):
@@ -11,37 +11,32 @@ class DatasetLoader(object):
         raise NotImplementedError
 
 class LibraryThing(DatasetLoader):
-    def __init__(self, data_dir, ndatapoints):
+    def __init__(self, data_dir, ndatapoints, idx_1, idx_2):
         self.path = os.path.join(data_dir, 'reviews.txt')
         self.ndatapoints = ndatapoints
-
-        
+        self.idx_1 = idx_1
+        self.idx_2 = idx_2
+    
     def load(self):
         df = pd.DataFrame([], columns = ['comment','nhelpful', 'unixtime', 'work', 'flags', 'user', 'stars', 'time'])
         file = open(self.path, 'r')
-        lines = file.readlines()[1:]
+        lines = file.readlines()[self.idx_1:self.idx_2]
 
         extracted_data = []
         linecount = 0
-
         for line in lines:
             try:
                 line = line.split('] = ')
                 line = line[1]
                 reviews = eval(line)
-                
+                linecount +=1
                 extracted_data.append([reviews.get('comment', ''), reviews.get('nhelpful', '0'), reviews.get('unixtime', '0'), reviews.get('work', ''), reviews.get('flags', ''), reviews.get('user', ''), reviews.get('stars', '0'), reviews.get('time', '')])
+                if linecount%10000 == 0:
+                    print(linecount/self.ndatapoints)
+                if linecount > self.ndatapoints - 1:
+                        break
             except SyntaxError:
                 pass
-
-            if linecount > self.ndatapoints:
-                    break
-            linecount +=1
-
-        
-
-        #print(len(extracted_data))    
-        
 
         df = pd.DataFrame(extracted_data, columns=['comment', 'nhelpful', 'unixtime', 'work', 'flags', 'user', 'stars', 'time'])
         df['commentlength'] = df['comment'].str.split().apply(len)
@@ -49,39 +44,24 @@ class LibraryThing(DatasetLoader):
         df['rate'] = df['rate'].astype(float)
         df['nhelpful'] = df['nhelpful'].astype(float)
         df['item'] = df['item'].astype(int)
-        df['rate'] = [int(i) for i in np.ceil(df['rate'])]
-        
-        
+
         df, user_mapping = convert_unique_idx(df, 'user')
         df, item_mapping = convert_unique_idx(df, 'item')
-     
         
-        '''
+     
+
         df['count'] = df.groupby('user')['user'].transform('size')
         df = df.sort_values('count', ascending=False)
         df = df[df['count'] > 20]
         df['count'] = df.groupby('item')['item'].transform('size')
         df = df.sort_values('count', ascending=False)
-        df = df[df['count'] > 2]
-        df = df[0:5000]
+        df = df[df['count'] >= 1]
+        df = df[df['count'] <= 5]
+
         print('number of unique users = ', len(df['user'].unique()))
         print('number of unique items = ',len(df['item'].unique()))
         print('number of data points = ', len(df))
-
-        item_mapping = {}
-        df.reset_index()
-        print(df.head())
-        print(df['key_item'].iloc[0])
-        print(df['item'])
-        key = df['key_item'].tolist()
-        item = df['item'].tolist()
-        for i in range(len(df)):
-            item_mapping[key[i]] = item[i]
-        print(len(item_mapping))
-        '''
         
-        
-
 
         return df, item_mapping
 
@@ -100,44 +80,36 @@ def convert_unique_idx(df, column_name):
     
     # O: Check that new index system is of expected size
     assert df[column_name].min() == 0
-    assert df[column_name].max() == len(column_dict) - 1  
+    assert df[column_name].max() == len(column_dict) - 1
 
+    
     return df, column_dict
 
-    """
-
-    def load(self):
-        file = open(self.path, 'r')
-        lines = file.readlines()
-
-        extracted_data = []
-        linecount = 0
-
-        for line in lines:
-
-            line_ = line.split('::')
-            line_[0] = int(line_[0])
-            line_[1] = int(line_[1])
-            line_[2] = float(line_[2])
-            line_[4] = float(line_[4])
-            line_[5] = int(line_[5])
-            line_[6] = int(line_[6])
-
-            extracted_data.append(line_[:-1])
-
-        df = pd.DataFrame(extracted_data, columns=['user', 'item', 'rate', 'unixtime', 'nhelpful', 'commentlength', 'key'])
-        
-        item_mapping = {}
+def write_data_to_file(idx1, idx2):
+    df, item_mapping = LibraryThing('', idx2, idx1, idx2).load()
+    df = df.reset_index()
+    #df['rate'] = [int(i) for i in np.ceil(df['rate'])]
+    print(df.head())
+    print('writing')
+    with open("ratings_lt.dat", "a") as f:
         for i in range(len(df)):
-            item_mapping[df['key'][i]] = df["user"][i]
-
-        
-            
-        print('number of unique users = ', len(df['user'].unique()))
-        print('number of unique items = ',len(df['item'].unique()))
-        print('number of data points = ', len(df))
-        
+            f.write(str(df['user'][i])+"::"+str(df['item'][i])+"::"+str(df['rate'][i])+"::"+str(df['unixtime'][i])+"\n") #+"::"+str(df['nhelpful'][i])+"::"+str(df['commentlength'][i])+"::"+str(df['key_item'][i])+"::\n")
 
 
-        return df, item_mapping
-"""
+write_data_to_file(1, 1000000)
+#write_data_to_file(1000000, 2000000)
+
+
+def test_train_split(file):
+    import random 
+
+    input = open(file, 'r') 
+
+    for line in input: 
+        with open("train_lt.dat", 'a') as f:
+            temp = line.split('::')
+            f.write(temp[0] + '::' + temp[1] + '::' +temp[2] + '::' +temp[3] + '\n') 
+
+
+    
+#test_train_split('ratings_lt_correct.dat')
