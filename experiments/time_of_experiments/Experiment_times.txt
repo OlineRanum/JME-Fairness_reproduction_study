@@ -83,3 +83,5 @@ UIR N sh 678.447 s
 UIR N st 148.8541 s  
 UIR Y sh 935.432 s  
 UIR Y st 186.4008 s  
+Bert4Rec N st 377.2937 s  
+Bert4Rec N sh 2065.0894 s  

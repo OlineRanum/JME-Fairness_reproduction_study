@@ -55,6 +55,10 @@ class MovieLens1M(DatasetLoader):
 
         # O: Reassign movie indices
         df, item_mapping = convert_unique_idx(df, 'item')
+        print(df.head())
+        print('Number of unique users', len(df['user'].unique()))
+        print('Number of unique items = ', len(df['item'].unique()))
+        print('Number of datapoints = ', len(df))
 
         return df, item_mapping
 
