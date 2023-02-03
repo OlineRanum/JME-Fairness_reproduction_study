@@ -2,7 +2,7 @@
 
 This repository reproduces the paper [Joint Multisided Exposure Fairness for Recommendation](https://arxiv.org/abs/2205.00048) (SIGIR 2022) as part of the [ML Reproducibility Challenge 2022](https://paperswithcode.com/rc2022), and an extention of the JME-fairness framework to the neural Bert4Rec model.
 
-![Title](Figures/Figure_5.png)
+![Fig5](Figures/Figure_5.png)
 *The JME-Fairness metrics calculated across a neural Bert4Rec model, for the MovieLens1M (orange) and the LibraryThing (turquoise) dataset.*
 
 ## Installation
@@ -79,9 +79,36 @@ LibraryThing (LT) Due to computational limitations we extract a subset of the Li
 The datasets is extracted from [here](https://cseweb.ucsd.edu/~jmcauley/datasets.html), please note that the dataset is automatically downloaded when running the setup script.
 
 
+## Results 
+
+### Reproducibility study
+*Claim 1*: Stochasticity impacts the JME‐fairness metrics and their corresponding disparity
+and relevance components, in the sense that there exists a disparity‐relevance
+trade‐off for each JME‐fairness metric.
+
+We successfully reproduce the major trends of the JME-fairness metrics 
+
+![Title](Figures/Figure_2.png)
+![Title](Figures/Figure_3.png)
+
+*Claim 2*: Each JME‐fairness metric quantifies a different notion of unfairness: a system that
+performs well on one fairness dimension can be suboptimal for another.
+
+
+*Claim 3*: Recommender systems can be optimized towards a specific fairness goal, based
+on different combinations of JME‐fairness metrics.
+
+The codebase does not contain code for demonstrating the third claim of the authors, as we were unable of training a converging model that included the JME-Fairness loss. On advice of the authors of the original paper, [this repository](https://github.com/jchanxtarov/bprmf) is suitable for further attempts to reconstruct the result of the third claim 
+
+
+
+### Extended Research
+
 ## Acknowledgements
 * The authors of the original paper H. Wu et al., in particular Dr. Bhaskar Mitra and Haloun Wu for supplying additional information regarding the pipeline and codebase of the original paper.
 * [Template source](https://www.overleaf.com/project/62fcf81c144fd47671a39284)
+
+
 
 
 ## Citation of the original paper
