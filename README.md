@@ -86,14 +86,18 @@ The datasets is extracted from [here](https://cseweb.ucsd.edu/~jmcauley/datasets
 and relevance components, in the sense that there exists a disparity‐relevance
 trade‐off for each JME‐fairness metric.
 
-We successfully reproduce the major trends of the JME-fairness metrics 
+We successfully reproduce the major trends of the JME-fairness metrics, although numerical deviations occure.
 
 ![Title](Figures/Figure_2.png)
 ![Title](Figures/Figure_3.png)
+![Title](Figures/Table_2.png)
 
 *Claim 2*: Each JME‐fairness metric quantifies a different notion of unfairness: a system that
 performs well on one fairness dimension can be suboptimal for another.
 
+We successfully reproduce the major trends of the JME-fairness metrics, although numerical deviations occure.
+
+![Title](Figures/Figure_4.png)
 
 *Claim 3*: Recommender systems can be optimized towards a specific fairness goal, based
 on different combinations of JME‐fairness metrics.
@@ -107,7 +111,7 @@ The codebase does not contain code for demonstrating the third claim of the auth
 ![Title](Figures/Figure_6.jpeg)
 
 ## Acknowledgements
-* The authors of the original paper H. Wu et al., in particular Dr. Bhaskar Mitra and Haloun Wu for supplying additional information regarding the pipeline and codebase of the original paper.
+* The authors of the original paper Wu et al., in particular Dr. Bhaskar Mitra and Haloun Wu for supplying additional information regarding the pipeline and codebase of the original paper.
 * [Template source](https://www.overleaf.com/project/62fcf81c144fd47671a39284)
 
 
