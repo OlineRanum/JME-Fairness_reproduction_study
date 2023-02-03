@@ -13,7 +13,10 @@ This folder contains the TorchRec implementation of [BERT4Rec](http://doi.acm.or
 
 ### Download pretrained BERT4Rec
 
-For the reproduction study
+To obtain the trained models from the reproduction study, run the following command from the main `FACT` directory:
+```
+python download_pretrained.py
+```
 
 ## How to use the code
 
