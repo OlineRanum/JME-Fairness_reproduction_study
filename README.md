@@ -108,6 +108,8 @@ The codebase does not contain code for demonstrating the third claim of the auth
 
 ### Extended Research
 
+We successfully demonstrate the application of the JME-Fairness curve to the neural model Bert4Rec trained on the MovieLens1M dataset. 
+
 ![Title](Figures/Figure_6.jpeg)
 
 ## Acknowledgements
