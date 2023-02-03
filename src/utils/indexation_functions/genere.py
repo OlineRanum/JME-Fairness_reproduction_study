@@ -2,24 +2,6 @@
 import torch 
 import numpy as np 
 
-def genre_ml100k_index(df):
-    df_genre = df[
-        ['item', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
-         'g16', 'g17', 'g18']]
-    df_genre = df_genre.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True).drop(columns=['item'])
-    
-    genre_name = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15',
-                  'g16', 'g17', 'g18']
-    index_genre = []
-    for genre in genre_name:
-        index_genre.append(torch.tensor(np.flatnonzero(df_genre[genre])).long())
-
-    genre_mask = df_genre.to_numpy().T
-    genre_mask = torch.FloatTensor(genre_mask)
-
-    return index_genre, genre_mask
-
-
 def genre_ml1m_index(df):
     df_genre = df[['item', 'genre']]
     df_genre = df_genre.drop_duplicates(subset=['item'], keep='first').reset_index(drop=True)

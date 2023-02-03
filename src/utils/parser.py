@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 
 def parser_args():
     parser = ArgumentParser(description="JMEF")
-    parser.add_argument('--data', type=str, default='ml-1m', choices=['ml-1m', 'ml-100k', 'lt'],
+    parser.add_argument('--data', type=str, default='ml-1m', choices=['ml-1m', 'lt'],
                         help="File path for data")
     parser.add_argument('--gpu_id', type=int, default=0)
     parser.add_argument('--seed', type=int, default=0, help="Seed (For reproducability)")
