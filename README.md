@@ -33,21 +33,28 @@ python3 src/utils/evaluation_functions/fariness_metrics.py
 In the subsequent section, we provide instructions on running bash-scripts that reproduce all the fairness metric calculations associated with our paper, and how to plot 
 
 #### Reproduce all plots in our reproduction study
+To only reproduce the plots from our precalculated results (i.e. after running run_metric_<dataset>.sh), please use the following command. If you wish to run the full metric calculations, please proceed to the subsequent sections.
+
 ```
 bash experiments/run_files/plot_reproduction_results.sh
 ```
-## Rerun all metric calculations on MovieLens1M dataset
+### Rerun all metric calculations on MovieLens1M dataset
 NB! Expected runtime on RTX 3070 GPU is 13h - this will estimate the fairness metrics across all 21 pre-trained models to build the Kendall rank correlations for the MovieLens1M dataset. 
 
 ```
 bash experiments/run_files/run_metrics_movielens.sh
 ```
 
-## Rerun all metric calculations on LibraryThing dataset
+### Rerun all metric calculations on LibraryThing dataset
 NB! Expected runtime on RTX 3070 GPU is 15h - this will estimate the fairness metrics across all 21 pre-trained models to build the Kendall rank correlations for the LibraryThing dataset. 
 
 ```
 bash experiments/run_files/run_metrics_librarything.sh
+```
+
+### To plot the figures from your own reproduced results
+```
+bash experiments/run_files/plot_reestimated_results.sh
 ```
 
 ## Train Bert4Rec
