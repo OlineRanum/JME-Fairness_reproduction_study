@@ -1,4 +1,4 @@
-name: base
+name: jme
 channels:
   - defaults
 dependencies:

@@ -1,8 +1,8 @@
 # Create environment
-#conda env create -f fact.yml
+conda env create -f env/jme.yml
 
-# Activate environment 
-#conda activate fact 
+# Install Gdown
+conda install -c conda-forge gdown
 
 # Download dataset Librarything
 python3 src/datasets/download_librarything.py
