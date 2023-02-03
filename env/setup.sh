@@ -1,11 +1,8 @@
 # Create environment
 conda env create -f env/jme.yml
-
-# Install Gdown
-pip3 install gdown
-
+conda activate jme
 # Download dataset Librarything
-python3 src/datasets/download_librarything.py
+python3 src/BERT4Rec/download_pretrained.py
 
 python << END
 print('------- JME-Fairness Reproducibility Study -------\n')
