@@ -2,6 +2,7 @@
 *.ods
 *.dat
 *.png
+*.txt
 
 # Metadata
 *.aliases

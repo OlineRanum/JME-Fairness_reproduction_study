@@ -1,2 +1,12 @@
-Pop N st 150.289 s  
-BPRMF N st 151.9696 s  
+Bert4Rec N st 377.2937 s  
+Bert4Rec N sh 2065.0894 s  
+Bert4Rec N st 341.6508 s  
+Bert4Rec N sh 1944.1939 s  
+Bert4Rec N st 258.8535 s  
+BPRMF N sh 630.4608 s  
+BPRMF N sh 99.4668 s  
+BPRMF N st 166.6626 s  
+BPRMF N sh 103.1014 s  
+BPRMF N st 168.2192 s  
+BPRMF Y sh 134.3935 s  
+BPRMF Y st 188.3595 s  

@@ -47,8 +47,15 @@ def GI_F(E_system, E_target, E_collect, user_label, batch_indicator):
     start_temp = time.time()
     """
     for i in range(num_userG):
-        diff = (E_system * user_label[i].view(-1, 1) - E_target * user_label[i].view(-1, 1)).sum(0, keepdim=True)
+        #print('-------')
+        #print(user_label.shape)
+        #print(user_label[i].shape)
+        #print(user_label[i].view(-1, 1).shape)
+        #print(E_system.shape)
         
+        diff = (E_system * user_label[i].view(-1, 1) - E_target * user_label[i].view(-1, 1)).sum(0, keepdim=True)
+        #print(diff.shape)
+        #print('.......')
         dis_tmp = (E_system * user_label[i].view(-1, 1)).sum(0, keepdim=True)
         rel_tmp = (E_system * user_label[i].view(-1, 1)).sum(0, keepdim=True) * (
                 E_target * user_label[i].view(-1, 1)).sum(
