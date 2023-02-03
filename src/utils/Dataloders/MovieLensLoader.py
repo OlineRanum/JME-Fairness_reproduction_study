@@ -9,40 +9,6 @@ class DatasetLoader(object):
         """
         raise NotImplementedError
 
-class MovieLens100k(DatasetLoader):
-    def _init_(self, data_dir):
-        self.fpath_rate = os.path.join(data_dir, 'u.data')
-        self.fpath_gender = os.path.join(data_dir, 'u.user')
-        self.fpath_genre = os.path.join(data_dir, 'u.item')
-
-    def load(self):
-        # Load data
-        df_rate = pd.read_csv(self.fpath_rate,
-                              sep='\t',
-                              engine='python',
-                              names=['user', 'item', 'rate', 'time'],
-                              usecols=['user', 'item', 'rate'])
-
-        df_gender = pd.read_csv(self.fpath_gender,
-                                sep='|',
-                                engine='python',
-                                names=['user', 'age', 'gender', 'occupation', 'zip'],
-                                usecols=['user', 'gender'])
-
-        df_rate['user'] = df_rate['user'].astype(str)
-        df_gender['user'] = df_gender['user'].astype(str)
-
-        df = pd.merge(df_rate, df_gender, on='user')
-        df = df.dropna(axis=0, how='any')
-
-        # TODO: Remove negative rating?
-        df = df[df['rate'] > 3]
-        df = df.reset_index().drop(['index'], axis=1)
-
-        df, item_mapping = convert_unique_idx(df, 'item')
-
-        return df, item_mapping
-
 
 class MovieLens1M(DatasetLoader):
     def __init__(self, data_dir):

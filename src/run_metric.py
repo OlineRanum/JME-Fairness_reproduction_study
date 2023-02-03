@@ -27,7 +27,7 @@ if __name__ == '__main__':
     df, item_mapping, matrix_label, user_size, item_size = preprocessing(args)
     
     # Obtain group indices for Movielens dataset
-    if (args.data == 'ml-1m') or (args.data == 'ml-100k'):
+    if args.data == 'ml-1m':
         index_F, index_M, index_gender, index_age, index_genre, index_pop, index_occup, age_matrix, pop_mask, occup_matrix, genre_matrix \
             = obtain_group_index(df, args)
         
