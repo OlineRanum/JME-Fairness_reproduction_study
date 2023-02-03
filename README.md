@@ -57,11 +57,8 @@ bash experiments/run_files/run_metrics_librarything.sh
 bash experiments/run_files/plot_reestimated_results.sh
 ```
 
-## Train Bert4Rec
-#### Train Bert4Rec
-```
-bash 
-```
+## Train BERT4Rec
+For training and evaluating BERT4Rec, refer to the [BERT4Rec](https://github.com/OlineRanum/FACT/tree/main/src/BERT4Rec) directory 
 
 
 ## Directory Overview
