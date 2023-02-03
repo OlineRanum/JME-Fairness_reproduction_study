@@ -80,7 +80,8 @@ The datasets is extracted from [here](https://cseweb.ucsd.edu/~jmcauley/datasets
 
 
 ## Acknowledgements
-
+* The authors of the original paper H. Wu et al., in particular Dr. Bhaskar Mitra and Haloun Wu for supplying additional information regarding the pipeline and codebase of the original paper.
+* [Template source](https://www.overleaf.com/project/62fcf81c144fd47671a39284)
 
 
 ## Citation of the original paper
