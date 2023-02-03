@@ -14,10 +14,13 @@ bash src/setup.sh
 ```
 
 ## How to use the code
+This section provides examples of how to use the repository
 
+### Per experiment
+How to run a single experiment
 #### To run a single experiment with default setting
 ```
-python3 
+python3 src/run_metric.py 
 ```
 #### Produce the toy example experiment results
 ```
