@@ -6,11 +6,13 @@ This repository reproduces the paper [Joint Multisided Exposure Fairness for Rec
 *The JME-Fairness metrics were calculated across a neural Bert4Rec model, for the MovieLens1M (orange) and the LibraryThing (turquoise) dataset.*
 
 ## Installation
+Warning: Running setup will call for an installation of gdown in order to automatically retrieve the dataset. 
 
 ``` Installing and configuring repo
 git clone https://github.com/OlineRanum/FACT.git
 cd FACT
 bash env/setup.sh
+conda activate jme
 ```
 
 ## How to use the code
