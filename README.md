@@ -67,10 +67,16 @@ The [`src`](./src) contains the source code of the project.
 
 ## Datasets 
 
-The [`data`](./data) contains the datasets we used from [here](https://grouplens.org/datasets/movielens/).
+### MovieLens
+MovieLens1M (ml‐1m) consists of 1,000,209 numerical ratings ranging from 1‐5. The reviews are supplied by 6,040 MovieLens users on 3,706 movies. The available metadata for the users includes 2 gender groups, 7 age groups, 21 occupation groups, and zip codes. The metadata for the movies comprises 19 genre groups (including unknown). Each user in the dataset has written at least 20 reviews.
 
-The [`saved_model`](./saved_model) contains the pre-trained model from [here](https://github.com/dvalcarce/evalMetrics).
+The datasets is extracted from [here](https://grouplens.org/datasets/movielens/), please note that the dataset is already avilable in the repository.
 
+
+### Librarything
+LibraryThing (LT) Due to computational limitations we extract a subset of the LibraryThing dataset comprised of 702,522 reviews provided by 12,976 LibraryThing users on 325,075 books. The selection is made so that each user has written at least 20 reviews and each item is reviewed at least 3 times.
+
+The datasets is extracted from [here](https://cseweb.ucsd.edu/~jmcauley/datasets.html), please note that the dataset is automatically downloaded when running the setup script.
 
 
 ## Acknowledgements
